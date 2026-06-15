@@ -67,4 +67,8 @@ public final class Enemy {
         int nextHp = Math.max(0, hp - amount);
         return new Enemy(id, type, position, nextHp, atk, def, expReward, nextHp > 0);
     }
+
+    public Enemy moveTo(Position nextPosition) {
+        return new Enemy(id, type, nextPosition, hp, atk, def, expReward, alive);
+    }
 }
