@@ -49,11 +49,11 @@ public class TileRendererTest {
         GameEngine engine = new GameEngine();
         engine.handleInput(InputCommand.newGame(123L));
         Enemy enemy = engine.getState().getEnemies().get(0);
-        moveTo(engine, adjacentWalkableTile(engine.getState(), enemy.getPosition()));
+        GameState state = stateAfterPath(engine.getState(), adjacentWalkableTile(engine.getState(), enemy.getPosition()));
         TileRenderer renderer = new TileRenderer();
 
         assertEquals(TileRenderer.ENEMY_COLOR,
-                renderer.colorFor(engine.getState(), enemy.getPosition().getX(), enemy.getPosition().getY()));
+                renderer.colorFor(state, enemy.getPosition().getX(), enemy.getPosition().getY()));
     }
 
     private GameState moveUntilSpawnIsSeen(GameEngine engine) {
@@ -103,6 +103,15 @@ public class TileRendererTest {
         for (int i = 0; i < path.length(); i++) {
             engine.handleInput(InputCommand.fromKey(path.charAt(i)));
         }
+    }
+
+    private GameState stateAfterPath(GameState state, Position target) {
+        String path = pathTo(state, target);
+        GameState current = state;
+        for (int i = 0; i < path.length(); i++) {
+            current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+        }
+        return current;
     }
 
     private String pathTo(GameState state, Position target) {

@@ -23,6 +23,7 @@ public final class GameState {
     private static final String PASS = "pass";
     private static final String STUDENT_CARD = "student-card";
     private static final String USB = "usb";
+    private static final int ENEMY_AGGRO_RANGE = 8;
 
     private final Long seed;
     private final boolean started;
@@ -301,10 +302,54 @@ public final class GameState {
             return this;
         }
         PlayerState damagedPlayer = player.damage(amount);
+        return withPlayerAfterDamage(damagedPlayer,
+                damagedPlayer.getHp() <= 0 ? "Game over. HP reached 0." : "Player took " + amount + " damage.");
+    }
+
+    public GameState advanceEnemyTurn() {
+        if (!started || world == null || isGameOver() || isCompleted()) {
+            return this;
+        }
+        List<Enemy> nextEnemies = new ArrayList<Enemy>();
+        PlayerState nextPlayer = player;
+        GameStatus nextStatus = status;
+        List<String> events = new ArrayList<String>();
+
+        for (Enemy enemy : enemies) {
+            if (!enemy.isAlive()) {
+                nextEnemies.add(enemy);
+                continue;
+            }
+            if (enemy.getPosition().manhattanDistanceTo(nextPlayer.getPosition()) == 1) {
+                int damage = CombatSystem.damage(enemy.getAtk(), nextPlayer.getDef());
+                nextPlayer = nextPlayer.damage(damage);
+                events.add(enemy.getType() + " hits you for " + damage + " damage");
+                nextEnemies.add(enemy);
+                if (nextPlayer.getHp() <= 0) {
+                    nextStatus = GameStatus.GAME_OVER;
+                    break;
+                }
+                continue;
+            }
+            Position nextPosition = nextEnemyPosition(enemy, nextPlayer.getPosition(), nextEnemies);
+            nextEnemies.add(nextPosition.equals(enemy.getPosition()) ? enemy : enemy.moveTo(nextPosition));
+        }
+
+        if (nextStatus == GameStatus.GAME_OVER) {
+            return new GameState(seed, started, exited, saveRequested, nextStatus, nextPlayer, world,
+                    inventory, items, appendRemainingEnemies(nextEnemies), npcs, quest, explored, visible,
+                    joinedTurnMessage(events, "Game over. HP reached 0."));
+        }
+        if (events.isEmpty() && sameEnemyPositions(enemies, nextEnemies)) {
+            return this;
+        }
+        return new GameState(seed, started, exited, saveRequested, status, nextPlayer, world,
+                inventory, items, nextEnemies, npcs, quest, explored, visible,
+                joinedTurnMessage(events, message));
+    }
+
+    private GameState withPlayerAfterDamage(PlayerState damagedPlayer, String nextMessage) {
         GameStatus nextStatus = damagedPlayer.getHp() <= 0 ? GameStatus.GAME_OVER : status;
-        String nextMessage = nextStatus == GameStatus.GAME_OVER
-                ? "Game over. HP reached 0."
-                : "Player took " + amount + " damage.";
         return new GameState(seed, started, exited, saveRequested, nextStatus, damagedPlayer, world,
                 inventory, items, enemies, npcs, quest, explored, visible, nextMessage);
     }
@@ -360,6 +405,118 @@ public final class GameState {
             }
         }
         return result;
+    }
+
+    private Position nextEnemyPosition(Enemy enemy, Position target, List<Enemy> alreadyMoved) {
+        if (enemy.getPosition().manhattanDistanceTo(target) > ENEMY_AGGRO_RANGE) {
+            return enemy.getPosition();
+        }
+        Direction[] directions = preferredDirectionsToward(enemy.getPosition(), target);
+        for (Direction direction : directions) {
+            Position candidate = new Position(enemy.getPosition().getX() + direction.getDx(),
+                    enemy.getPosition().getY() + direction.getDy());
+            if (canEnemyMoveTo(candidate, enemy, alreadyMoved)) {
+                return candidate;
+            }
+        }
+        return enemy.getPosition();
+    }
+
+    private Direction[] preferredDirectionsToward(Position from, Position target) {
+        Direction horizontal = target.getX() < from.getX() ? Direction.WEST : Direction.EAST;
+        Direction vertical = target.getY() < from.getY() ? Direction.NORTH : Direction.SOUTH;
+        if (Math.abs(target.getX() - from.getX()) >= Math.abs(target.getY() - from.getY())) {
+            return new Direction[]{horizontal, vertical, opposite(vertical), opposite(horizontal)};
+        }
+        return new Direction[]{vertical, horizontal, opposite(horizontal), opposite(vertical)};
+    }
+
+    private Direction opposite(Direction direction) {
+        switch (direction) {
+            case NORTH:
+                return Direction.SOUTH;
+            case SOUTH:
+                return Direction.NORTH;
+            case WEST:
+                return Direction.EAST;
+            case EAST:
+                return Direction.WEST;
+            default:
+                throw new IllegalArgumentException("Unsupported direction: " + direction);
+        }
+    }
+
+    private boolean canEnemyMoveTo(Position candidate, Enemy movingEnemy, List<Enemy> alreadyMoved) {
+        if (!world.contains(candidate.getX(), candidate.getY()) || !world.isWalkable(candidate)) {
+            return false;
+        }
+        if (candidate.equals(player.getPosition())) {
+            return false;
+        }
+        for (Enemy enemy : alreadyMoved) {
+            if (enemy.isAlive() && enemy.getPosition().equals(candidate)) {
+                return false;
+            }
+        }
+        for (Enemy enemy : enemies) {
+            if (enemy.isAlive()
+                    && !enemy.getId().equals(movingEnemy.getId())
+                    && enemy.getPosition().equals(candidate)
+                    && !alreadyContains(alreadyMoved, enemy.getId())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean alreadyContains(List<Enemy> alreadyMoved, String enemyId) {
+        for (Enemy enemy : alreadyMoved) {
+            if (enemy.getId().equals(enemyId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<Enemy> appendRemainingEnemies(List<Enemy> nextEnemies) {
+        List<Enemy> result = new ArrayList<Enemy>(nextEnemies);
+        for (Enemy enemy : enemies) {
+            if (!alreadyContains(result, enemy.getId())) {
+                result.add(enemy);
+            }
+        }
+        return result;
+    }
+
+    private boolean sameEnemyPositions(List<Enemy> before, List<Enemy> after) {
+        if (before.size() != after.size()) {
+            return false;
+        }
+        for (int i = 0; i < before.size(); i++) {
+            Enemy left = before.get(i);
+            Enemy right = after.get(i);
+            if (!left.getId().equals(right.getId())
+                    || !left.getPosition().equals(right.getPosition())
+                    || left.isAlive() != right.isAlive()
+                    || left.getHp() != right.getHp()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String joinedTurnMessage(List<String> events, String fallback) {
+        if (events.isEmpty()) {
+            return fallback;
+        }
+        StringBuilder builder = new StringBuilder(fallback == null ? "" : fallback);
+        for (String event : events) {
+            if (builder.length() > 0) {
+                builder.append(' ');
+            }
+            builder.append(event).append('.');
+        }
+        return builder.toString();
     }
 
     private GameState collectItem(Item item) {

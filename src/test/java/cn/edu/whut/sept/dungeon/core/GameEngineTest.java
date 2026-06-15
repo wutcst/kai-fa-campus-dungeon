@@ -158,14 +158,13 @@ public class GameEngineTest {
 
     @Test
     public void playerAttacksAdjacentEnemyWithoutMovingIntoEnemyTile() {
-        GameEngine engine = new GameEngine();
-        engine.handleInput(InputCommand.newGame(123L));
-        Enemy enemy = engine.getState().getEnemies().get(0);
-        Position adjacent = adjacentWalkableTile(engine.getState(), enemy.getPosition());
+        GameState state = GameState.newGame(123L);
+        Enemy enemy = state.getEnemies().get(0);
+        Position adjacent = adjacentWalkableTile(state, enemy.getPosition());
+        GameState adjacentState = stateAfterPath(state, adjacent);
 
-        moveTo(engine, adjacent);
         Direction attackDirection = directionBetween(adjacent, enemy.getPosition());
-        GameState attacked = engine.handleInput(InputCommand.fromKey(keyFor(attackDirection)));
+        GameState attacked = adjacentState.movePlayer(attackDirection);
         Enemy damagedEnemy = attacked.enemyAt(enemy.getPosition());
 
         assertEquals(adjacent, attacked.getPlayer().getPosition());
@@ -176,22 +175,83 @@ public class GameEngineTest {
 
     @Test
     public void defeatedEnemyGrantsExpAndNoLongerBlocksMovement() {
-        GameEngine engine = new GameEngine();
-        engine.handleInput(InputCommand.newGame(123L));
-        Enemy enemy = engine.getState().getEnemies().get(0);
-        Position adjacent = adjacentWalkableTile(engine.getState(), enemy.getPosition());
+        GameState state = GameState.newGame(123L);
+        Enemy enemy = state.getEnemies().get(0);
+        Position adjacent = adjacentWalkableTile(state, enemy.getPosition());
+        GameState adjacentState = stateAfterPath(state, adjacent);
         Direction attackDirection = directionBetween(adjacent, enemy.getPosition());
 
-        moveTo(engine, adjacent);
-        GameState firstHit = engine.handleInput(InputCommand.fromKey(keyFor(attackDirection)));
-        GameState defeated = engine.handleInput(InputCommand.fromKey(keyFor(attackDirection)));
-        GameState movedIntoTile = engine.handleInput(InputCommand.fromKey(keyFor(attackDirection)));
+        GameState firstHit = adjacentState.movePlayer(attackDirection);
+        GameState defeated = firstHit.movePlayer(attackDirection);
+        GameState movedIntoTile = defeated.movePlayer(attackDirection);
 
         assertNotNull(firstHit.enemyAt(enemy.getPosition()));
         assertEquals(enemy.getExpReward(), defeated.getPlayer().getExp());
         assertEquals("Defeated " + enemy.getType() + " and gained " + enemy.getExpReward() + " EXP.",
                 defeated.getMessage());
         assertEquals(enemy.getPosition(), movedIntoTile.getPlayer().getPosition());
+    }
+
+    @Test
+    public void enemyMovesAfterValidPlayerMove() {
+        GameState state = GameState.newGame(123L);
+        Enemy enemy = state.getEnemies().get(0);
+        Position playerTarget = nearbyWalkableTile(state, enemy.getPosition(), 6);
+        GameState nearEnemy = moveByRulesOnly(state, playerTarget);
+        Enemy beforeEnemy = findEnemy(nearEnemy, enemy.getId());
+
+        GameState afterTurn = nearEnemy.advanceEnemyTurn();
+        Enemy afterEnemy = findEnemy(afterTurn, enemy.getId());
+
+        assertTrue(afterEnemy.getPosition().manhattanDistanceTo(afterTurn.getPlayer().getPosition())
+                < beforeEnemy.getPosition().manhattanDistanceTo(playerTarget));
+    }
+
+    @Test
+    public void adjacentEnemyAttacksAfterPlayerAction() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+        Enemy enemy = engine.getState().getEnemies().get(0);
+        Position adjacent = adjacentWalkableTile(engine.getState(), enemy.getPosition());
+        GameState adjacentState = stateAfterPath(engine.getState(), adjacent);
+
+        GameState afterTurn = adjacentState.advanceEnemyTurn();
+
+        assertEquals(28, afterTurn.getPlayer().getHp());
+        assertTrue(afterTurn.getMessage().contains(enemy.getType() + " hits you for 2 damage"));
+    }
+
+    @Test
+    public void enemyActsAfterPlayerAttack() {
+        GameState state = GameState.newGame(123L);
+        Enemy enemy = state.getEnemies().get(0);
+        Position adjacent = adjacentWalkableTile(state, enemy.getPosition());
+        GameState adjacentState = stateAfterPath(state, adjacent);
+        Direction attackDirection = directionBetween(adjacent, enemy.getPosition());
+
+        GameState afterAttack = adjacentState.movePlayer(attackDirection);
+        GameState afterEnemyTurn = afterAttack.advanceEnemyTurn();
+
+        assertEquals(30, afterAttack.getPlayer().getHp());
+        assertEquals(28, afterEnemyTurn.getPlayer().getHp());
+        assertTrue(afterEnemyTurn.getMessage().contains(enemy.getType() + " hits you for 2 damage"));
+    }
+
+    @Test
+    public void invalidInputAndBlockedMoveDoNotAdvanceEnemyTurn() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+        Enemy enemy = engine.getState().getEnemies().get(0);
+        Position beforeEnemyPosition = enemy.getPosition();
+
+        GameState unknown = engine.handleInput(InputCommand.fromKey('?'));
+        GameState beforeBlockedMove = moveUntilNextStepIsBlocked(engine, Direction.WEST);
+        GameState blocked = engine.handleInput(InputCommand.fromKey('h'));
+
+        assertEquals(beforeEnemyPosition, findEnemy(unknown, enemy.getId()).getPosition());
+        assertEquals(findEnemy(beforeBlockedMove, enemy.getId()).getPosition(),
+                findEnemy(blocked, enemy.getId()).getPosition());
+        assertEquals("Blocked by wall.", blocked.getMessage());
     }
 
     @Test
@@ -416,6 +476,59 @@ public class GameEngineTest {
         for (int i = 0; i < path.length(); i++) {
             engine.handleInput(InputCommand.fromKey(path.charAt(i)));
         }
+    }
+
+    private GameState stateAfterPath(GameState state, Position target) {
+        return moveByRulesOnly(state, target);
+    }
+
+    private GameState moveByRulesOnly(GameState state, Position target) {
+        String path = pathTo(state, target);
+        GameState current = state;
+        for (int i = 0; i < path.length(); i++) {
+            current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+        }
+        return current;
+    }
+
+    private Enemy findEnemy(GameState state, String enemyId) {
+        for (Enemy enemy : state.getEnemies()) {
+            if (enemy.getId().equals(enemyId)) {
+                return enemy;
+            }
+        }
+        throw new AssertionError("Missing enemy: " + enemyId);
+    }
+
+    private Position nearbyWalkableTile(GameState state, Position target, int maxDistance) {
+        World world = state.getWorld();
+        Position start = state.getPlayer().getPosition();
+        boolean[][] visited = new boolean[world.getHeight()][world.getWidth()];
+        Queue<PathNode> queue = new ArrayDeque<PathNode>();
+        queue.add(new PathNode(start, ""));
+        visited[start.getY()][start.getX()] = true;
+
+        while (!queue.isEmpty()) {
+            PathNode current = queue.remove();
+            if (current.position.manhattanDistanceTo(target) <= maxDistance
+                    && current.position.manhattanDistanceTo(target) > 1
+                    && !current.position.equals(start)) {
+                return current.position;
+            }
+            Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+            for (Direction direction : directions) {
+                Position next = new Position(current.position.getX() + direction.getDx(),
+                        current.position.getY() + direction.getDy());
+                if (world.contains(next.getX(), next.getY())
+                        && !visited[next.getY()][next.getX()]
+                        && world.isWalkable(next)
+                        && state.enemyAt(next) == null) {
+                    visited[next.getY()][next.getX()] = true;
+                    queue.add(new PathNode(next, current.path + keyFor(direction)));
+                }
+            }
+        }
+        throw new AssertionError("Could not find nearby walkable tile for " + target);
     }
 
     private void completeNpcQuestLine(GameEngine engine) {

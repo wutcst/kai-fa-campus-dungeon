@@ -1,5 +1,6 @@
 package cn.edu.whut.sept.dungeon.core;
 
+import cn.edu.whut.sept.dungeon.entity.Enemy;
 import cn.edu.whut.sept.dungeon.io.SaveManager;
 
 /**
@@ -63,6 +64,8 @@ public class GameEngine {
             return state;
         }
 
+        GameState before = state;
+        boolean canAdvanceTurn = false;
         switch (command.getType()) {
             case NEW_GAME:
                 state = GameState.newGame(command.getSeed());
@@ -72,12 +75,15 @@ public class GameEngine {
                 break;
             case MOVE:
                 state = state.movePlayer(command.getDirection());
+                canAdvanceTurn = true;
                 break;
             case INTERACT:
                 state = state.interact();
+                canAdvanceTurn = true;
                 break;
             case ANSWER:
                 state = state.answer(command.getAnswer());
+                canAdvanceTurn = true;
                 break;
             case INVENTORY:
                 state = state.describeInventory();
@@ -90,6 +96,9 @@ public class GameEngine {
             default:
                 state = state.withMessage("Unknown input: " + command.getRawInput());
                 break;
+        }
+        if (canAdvanceTurn && consumesTurn(before, state)) {
+            state = state.advanceEnemyTurn();
         }
         return state;
     }
@@ -123,6 +132,53 @@ public class GameEngine {
         } catch (NumberFormatException exception) {
             return new SeedParseResult(0L, index);
         }
+    }
+
+    private boolean consumesTurn(GameState before, GameState after) {
+        if (before == null || after == null || !after.isStarted() || after.isGameOver()) {
+            return false;
+        }
+        if (before.getPlayer().getSteps() != after.getPlayer().getSteps()) {
+            return true;
+        }
+        if (before.getPlayer().getExp() != after.getPlayer().getExp()) {
+            return true;
+        }
+        if (before.getInventory().getItemIds().size() != after.getInventory().getItemIds().size()) {
+            return true;
+        }
+        if (before.isCompleted() != after.isCompleted()) {
+            return true;
+        }
+        if (questChanged(before, after)) {
+            return true;
+        }
+        return enemiesChanged(before, after);
+    }
+
+    private boolean questChanged(GameState before, GameState after) {
+        return before.getQuest().isReportIssued() != after.getQuest().isReportIssued()
+                || before.getQuest().isSlidesExported() != after.getQuest().isSlidesExported()
+                || before.getQuest().isPassIssued() != after.getQuest().isPassIssued()
+                || before.getQuest().isMavenPuzzleSolved() != after.getQuest().isMavenPuzzleSolved()
+                || before.getQuest().isCompleted() != after.getQuest().isCompleted();
+    }
+
+    private boolean enemiesChanged(GameState before, GameState after) {
+        if (before.getEnemies().size() != after.getEnemies().size()) {
+            return true;
+        }
+        for (int i = 0; i < before.getEnemies().size(); i++) {
+            Enemy left = before.getEnemies().get(i);
+            Enemy right = after.getEnemies().get(i);
+            if (!left.getId().equals(right.getId())
+                    || left.getHp() != right.getHp()
+                    || left.isAlive() != right.isAlive()
+                    || !left.getPosition().equals(right.getPosition())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static final class SeedParseResult {

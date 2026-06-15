@@ -128,10 +128,10 @@ public class SaveManagerTest {
         engine.handleInput(InputCommand.newGame(123L));
         Enemy enemy = engine.getState().getEnemies().get(0);
         Position adjacent = adjacentWalkableTile(engine.getState(), enemy.getPosition());
-        moveTo(engine, adjacent);
-        engine.handleInput(InputCommand.fromKey(keyFor(directionBetween(adjacent, enemy.getPosition()))));
+        GameState adjacentState = stateAfterPath(engine.getState(), adjacent);
+        GameState attacked = adjacentState.movePlayer(directionBetween(adjacent, enemy.getPosition()));
 
-        saveManager.save(engine.getState());
+        saveManager.save(attacked);
         GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
         Enemy loadedEnemy = findEnemy(loaded, enemy.getId());
 
@@ -176,6 +176,15 @@ public class SaveManagerTest {
         for (int i = 0; i < path.length(); i++) {
             engine.handleInput(InputCommand.fromKey(path.charAt(i)));
         }
+    }
+
+    private GameState stateAfterPath(GameState state, Position target) {
+        String path = pathTo(state, target);
+        GameState current = state;
+        for (int i = 0; i < path.length(); i++) {
+            current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+        }
+        return current;
     }
 
     private String pathTo(GameState state, Position target) {
