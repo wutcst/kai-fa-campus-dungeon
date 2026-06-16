@@ -74,7 +74,7 @@ public class GameEngineTest {
     public void playerMovesOnFloor() {
         GameState initial = new GameEngine().playWithInputString("n123s").getState();
 
-        GameState moved = new GameEngine().playWithInputString("n123sl").getState();
+        GameState moved = new GameEngine().playWithInputString("n123sd").getState();
 
         assertEquals(initial.getPlayer().getX() + 1, moved.getPlayer().getX());
         assertEquals(initial.getPlayer().getY(), moved.getPlayer().getY());
@@ -84,18 +84,19 @@ public class GameEngineTest {
     }
 
     @Test
-    public void vimMovementKeysMoveInExpectedDirections() {
-        assertEquals(Direction.WEST, InputCommand.fromKey('h').getDirection());
-        assertEquals(Direction.SOUTH, InputCommand.fromKey('j').getDirection());
-        assertEquals(Direction.NORTH, InputCommand.fromKey('k').getDirection());
-        assertEquals(Direction.EAST, InputCommand.fromKey('l').getDirection());
+    public void wasdMovementKeysMoveInExpectedDirections() {
+        assertEquals(Direction.NORTH, InputCommand.fromKey('w').getDirection());
+        assertEquals(Direction.WEST, InputCommand.fromKey('a').getDirection());
+        assertEquals(Direction.SOUTH, InputCommand.fromKey('s').getDirection());
+        assertEquals(Direction.EAST, InputCommand.fromKey('d').getDirection());
     }
 
     @Test
-    public void oIsLoadAndLIsEastMovement() {
+    public void oIsLoadAndJOrSpaceIsAttack() {
         assertEquals(InputCommand.Type.LOAD, InputCommand.fromKey('o').getType());
-        assertEquals(InputCommand.Type.MOVE, InputCommand.fromKey('l').getType());
-        assertEquals(Direction.EAST, InputCommand.fromKey('l').getDirection());
+        assertEquals(InputCommand.Type.ATTACK, InputCommand.fromKey('j').getType());
+        assertEquals(InputCommand.Type.ATTACK, InputCommand.fromKey(' ').getType());
+        assertEquals(InputCommand.Type.SKILL, InputCommand.fromKey('k').getType());
     }
 
     @Test
@@ -104,7 +105,7 @@ public class GameEngineTest {
         engine.handleInput(InputCommand.newGame(123L));
         GameState beforeBlockedMove = moveUntilNextStepIsBlocked(engine, Direction.WEST);
 
-        GameState state = engine.handleInput(InputCommand.fromKey('h'));
+        GameState state = engine.handleInput(InputCommand.fromKey('a'));
 
         assertTrue(state.isStarted());
         assertEquals(beforeBlockedMove.getPlayer().getX(), state.getPlayer().getX());
@@ -116,11 +117,11 @@ public class GameEngineTest {
 
     @Test
     public void validMoveIncreasesStepsButBlockedMoveDoesNot() {
-        GameState moved = new GameEngine().playWithInputString("n123sl").getState();
+        GameState moved = new GameEngine().playWithInputString("n123sd").getState();
         GameEngine engine = new GameEngine();
         engine.handleInput(InputCommand.newGame(123L));
         GameState beforeBlockedMove = moveUntilNextStepIsBlocked(engine, Direction.WEST);
-        GameState blocked = engine.handleInput(InputCommand.fromKey('h'));
+        GameState blocked = engine.handleInput(InputCommand.fromKey('a'));
 
         assertEquals(1, moved.getPlayer().getSteps());
         assertEquals(beforeBlockedMove.getPlayer().getSteps(), blocked.getPlayer().getSteps());
@@ -247,12 +248,41 @@ public class GameEngineTest {
 
         GameState unknown = engine.handleInput(InputCommand.fromKey('?'));
         GameState beforeBlockedMove = moveUntilNextStepIsBlocked(engine, Direction.WEST);
-        GameState blocked = engine.handleInput(InputCommand.fromKey('h'));
+        GameState blocked = engine.handleInput(InputCommand.fromKey('a'));
 
         assertEquals(beforeEnemyPosition, findEnemy(unknown, enemy.getId()).getPosition());
         assertEquals(findEnemy(beforeBlockedMove, enemy.getId()).getPosition(),
                 findEnemy(blocked, enemy.getId()).getPosition());
         assertEquals("Blocked by wall.", blocked.getMessage());
+    }
+
+    @Test
+    public void attackKeyUsesCurrentDirectionWithoutMovingPlayer() {
+        GameState state = GameState.newGame(123L);
+        Enemy enemy = state.getEnemies().get(0);
+        Position adjacent = adjacentWalkableTile(state, enemy.getPosition());
+
+        Direction attackDirection = directionBetween(adjacent, enemy.getPosition());
+        GameState adjacentState = stateAfterPath(state, adjacent);
+        GameState turned = facePlayer(adjacentState, attackDirection);
+        GameState attacked = turned.attack();
+        Enemy damagedEnemy = attacked.enemyAt(enemy.getPosition());
+
+        assertEquals(InputCommand.Type.ATTACK, InputCommand.fromKey('j').getType());
+        assertEquals(adjacent, turned.getPlayer().getPosition());
+        assertEquals(adjacent, attacked.getPlayer().getPosition());
+        assertNotNull(damagedEnemy);
+        assertTrue(damagedEnemy.getHp() < turned.enemyAt(enemy.getPosition()).getHp());
+        assertTrue(attacked.getMessage().contains("Hit " + enemy.getType()));
+    }
+
+    @Test
+    public void attackKeyDoesNotMoveWhenNoEnemyIsInFront() {
+        GameState state = new GameEngine().playWithInputString("n123sdj").getState();
+
+        assertEquals(Direction.EAST, state.getPlayer().getDirection());
+        assertEquals(1, state.getPlayer().getSteps());
+        assertEquals("Attacked EAST, but hit nothing.", state.getMessage());
     }
 
     @Test
@@ -617,13 +647,13 @@ public class GameEngineTest {
     private char keyFor(Direction direction) {
         switch (direction) {
             case NORTH:
-                return 'k';
+                return 'w';
             case SOUTH:
-                return 'j';
+                return 's';
             case WEST:
-                return 'h';
+                return 'a';
             case EAST:
-                return 'l';
+                return 'd';
             default:
                 throw new IllegalArgumentException("Unsupported direction: " + direction);
         }
@@ -686,6 +716,17 @@ public class GameEngineTest {
             current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
         }
         return current;
+    }
+
+    private GameState facePlayer(GameState state, Direction direction) {
+        GameState.PlayerState player = state.getPlayer();
+        GameState.PlayerState turnedPlayer = GameState.PlayerState.of(player.getX(), player.getY(), direction,
+                player.getSteps(), player.getHp(), player.getMaxHp(), player.getAtk(), player.getDef(),
+                player.getLevel(), player.getExp(), player.getWeapon(), player.getArmor(), player.getCoffeeBoost());
+        return GameState.restored(state.getSeed(), state.getDepth(), state.isStarted(), state.isExited(),
+                state.isSaveRequested(), state.getStatus(), turnedPlayer, state.getWorld(), state.getInventory(),
+                state.getItems(), state.getEnemies(), state.getNpcs(), state.getTraps(), state.getQuest(),
+                state.copyExplored(), state.getMessage());
     }
 
     private GameState descendToDepth(GameState state, int targetDepth) {

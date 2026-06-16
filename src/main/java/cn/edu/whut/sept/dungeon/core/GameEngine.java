@@ -78,6 +78,13 @@ public class GameEngine {
                 state = state.movePlayer(command.getDirection());
                 canAdvanceTurn = true;
                 break;
+            case ATTACK:
+                state = state.attack();
+                canAdvanceTurn = true;
+                break;
+            case SKILL:
+                state = state.withMessage("Skill is not unlocked yet.");
+                break;
             case INTERACT:
                 state = state.interact();
                 canAdvanceTurn = true;

@@ -5,6 +5,8 @@ public final class InputCommand {
         NEW_GAME,
         LOAD,
         MOVE,
+        ATTACK,
+        SKILL,
         INTERACT,
         ANSWER,
         INVENTORY,
@@ -43,18 +45,19 @@ public final class InputCommand {
         switch (lowerInput) {
             case 'o':
                 return new InputCommand(Type.LOAD, null, 0L, null, lowerInput);
-            case 'k':
             case 'w':
                 return new InputCommand(Type.MOVE, Direction.NORTH, 0L, null, lowerInput);
-            case 'h':
             case 'a':
                 return new InputCommand(Type.MOVE, Direction.WEST, 0L, null, lowerInput);
-            case 'j':
             case 's':
                 return new InputCommand(Type.MOVE, Direction.SOUTH, 0L, null, lowerInput);
-            case 'l':
             case 'd':
                 return new InputCommand(Type.MOVE, Direction.EAST, 0L, null, lowerInput);
+            case 'j':
+            case ' ':
+                return new InputCommand(Type.ATTACK, null, 0L, null, lowerInput);
+            case 'k':
+                return new InputCommand(Type.SKILL, null, 0L, null, lowerInput);
             case 'e':
                 return new InputCommand(Type.INTERACT, null, 0L, null, lowerInput);
             case 'i':
