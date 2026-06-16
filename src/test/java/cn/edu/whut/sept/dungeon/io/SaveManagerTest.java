@@ -30,7 +30,7 @@ public class SaveManagerTest {
         File saveFile = saveFile("position");
         SaveManager saveManager = new SaveManager(saveFile);
 
-        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sll:q").getState();
+        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sdd:q").getState();
         GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
 
         assertTrue(saveFile.exists());
@@ -52,7 +52,7 @@ public class SaveManagerTest {
         File saveFile = saveFile("world");
         SaveManager saveManager = new SaveManager(saveFile);
 
-        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sll:q").getState();
+        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sdd:q").getState();
         GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
 
         assertEquals(saved.getWorld().toTileString(), loaded.getWorld().toTileString());
@@ -407,13 +407,13 @@ public class SaveManagerTest {
     private char keyFor(Direction direction) {
         switch (direction) {
             case NORTH:
-                return 'k';
+                return 'w';
             case SOUTH:
-                return 'j';
+                return 's';
             case WEST:
-                return 'h';
+                return 'a';
             case EAST:
-                return 'l';
+                return 'd';
             default:
                 throw new IllegalArgumentException("Unsupported direction: " + direction);
         }

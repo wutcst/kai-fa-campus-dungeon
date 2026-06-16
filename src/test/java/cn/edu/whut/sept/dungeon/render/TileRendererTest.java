@@ -84,7 +84,7 @@ public class TileRendererTest {
     @Test
     public void rendererProvidesDistinctPixelGlyphsForGameObjects() {
         TileRenderer renderer = new TileRenderer();
-        GameState state = new GameEngine().playWithInputString("n123sl").getState();
+        GameState state = new GameEngine().playWithInputString("n123sd").getState();
         assertEquals(">", renderer.glyphFor(state, state.getPlayer().getX(), state.getPlayer().getY()));
 
         Enemy enemy = state.getEnemies().get(0);
@@ -246,13 +246,13 @@ public class TileRendererTest {
     private char keyFor(Direction direction) {
         switch (direction) {
             case NORTH:
-                return 'k';
+                return 'w';
             case SOUTH:
-                return 'j';
+                return 's';
             case WEST:
-                return 'h';
+                return 'a';
             case EAST:
-                return 'l';
+                return 'd';
             default:
                 throw new IllegalArgumentException("Unsupported direction: " + direction);
         }

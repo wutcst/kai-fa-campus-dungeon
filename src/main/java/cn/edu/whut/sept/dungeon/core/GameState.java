@@ -305,6 +305,22 @@ public final class GameState {
         return movedState.triggerTrapAtPlayer();
     }
 
+    public GameState attack() {
+        if (isGameOver()) {
+            return withMessage("Game over. Start a new game to try again.");
+        }
+        if (!started || world == null) {
+            return withMessage("Start a new game first.");
+        }
+        Direction direction = player.getDirection();
+        Position target = new Position(player.getX() + direction.getDx(), player.getY() + direction.getDy());
+        Enemy enemy = enemyAt(target);
+        if (enemy == null) {
+            return withMessage("Attacked " + direction.name() + ", but hit nothing.");
+        }
+        return attackEnemy(player, enemy);
+    }
+
     public GameState interact() {
         if (isGameOver()) {
             return withMessage("Game over. Start a new game to try again.");
