@@ -149,6 +149,21 @@ public class SaveManagerTest {
     }
 
     @Test
+    public void saveAndLoadRestoresProjectiles() {
+        File saveFile = saveFile("projectiles");
+        SaveManager saveManager = new SaveManager(saveFile);
+        GameState fired = new GameEngine(saveManager).playWithInputString("n123sdj").getState();
+
+        saveManager.save(fired);
+        GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
+
+        assertEquals(1, loaded.getProjectiles().size());
+        assertEquals(Direction.EAST, loaded.getProjectiles().get(0).getDirection());
+        assertEquals(fired.getProjectiles().get(0).getRemainingRange(),
+                loaded.getProjectiles().get(0).getRemainingRange());
+    }
+
+    @Test
     public void saveAndLoadRestoresEquipmentAndBoost() {
         File saveFile = saveFile("equipment");
         SaveManager saveManager = new SaveManager(saveFile);
