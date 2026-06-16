@@ -8,6 +8,8 @@ import cn.edu.whut.sept.dungeon.entity.Inventory;
 import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Npc;
 import cn.edu.whut.sept.dungeon.entity.Trap;
+import cn.edu.whut.sept.dungeon.projectile.Projectile;
+import cn.edu.whut.sept.dungeon.projectile.ProjectileOwner;
 import cn.edu.whut.sept.dungeon.quest.QuestState;
 import cn.edu.whut.sept.dungeon.world.Corridor;
 import cn.edu.whut.sept.dungeon.world.Position;
@@ -113,6 +115,10 @@ public final class SaveManager {
             for (Enemy enemy : state.getEnemies()) {
                 data.entities.enemies.add(EnemyData.from(enemy));
             }
+            data.entities.projectiles = new ArrayList<ProjectileData>();
+            for (Projectile projectile : state.getProjectiles()) {
+                data.entities.projectiles.add(ProjectileData.from(projectile));
+            }
             data.entities.npcs = new ArrayList<NpcData>();
             for (Npc npc : state.getNpcs()) {
                 data.entities.npcs.add(NpcData.from(npc));
@@ -133,6 +139,9 @@ public final class SaveManager {
                     : player.toPlayerState();
             List<Item> restoredItems = entities == null ? Collections.<Item>emptyList() : entities.toItems();
             List<Enemy> restoredEnemies = entities == null ? Collections.<Enemy>emptyList() : entities.toEnemies();
+            List<Projectile> restoredProjectiles = entities == null
+                    ? Collections.<Projectile>emptyList()
+                    : entities.toProjectiles();
             List<Npc> restoredNpcs = entities == null ? Collections.<Npc>emptyList() : entities.toNpcs();
             List<Trap> restoredTraps = entities == null ? Collections.<Trap>emptyList() : entities.toTraps();
             QuestState restoredQuest = quest == null ? QuestState.initial() : quest.toQuestState();
@@ -140,9 +149,9 @@ public final class SaveManager {
                     ? (restoredQuest.isCompleted() ? GameStatus.COMPLETED : GameStatus.PLAYING)
                     : status;
             int restoredDepth = depth <= 0 ? 1 : depth;
-            return GameState.restored(seed, restoredDepth, started, exited, saveRequested, tick, restoredStatus, restoredPlayer, restoredWorld,
-                    Inventory.of(inventory), restoredItems, restoredEnemies, restoredNpcs, restoredTraps, restoredQuest,
-                    decodeBooleans(explored), message);
+            return GameState.restored(seed, restoredDepth, started, exited, saveRequested, tick, restoredStatus,
+                    restoredPlayer, restoredWorld, Inventory.of(inventory), restoredItems, restoredEnemies,
+                    restoredProjectiles, restoredNpcs, restoredTraps, restoredQuest, decodeBooleans(explored), message);
         }
 
         boolean isLoadable() {
@@ -336,6 +345,7 @@ public final class SaveManager {
     static final class EntityData {
         List<ItemData> items = Collections.emptyList();
         List<EnemyData> enemies = Collections.emptyList();
+        List<ProjectileData> projectiles = Collections.emptyList();
         List<NpcData> npcs = Collections.emptyList();
         List<TrapData> traps = Collections.emptyList();
         List<String> doors = Collections.emptyList();
@@ -355,6 +365,16 @@ public final class SaveManager {
             if (enemies != null) {
                 for (EnemyData enemy : enemies) {
                     result.add(enemy.toEnemy());
+                }
+            }
+            return result;
+        }
+
+        List<Projectile> toProjectiles() {
+            List<Projectile> result = new ArrayList<Projectile>();
+            if (projectiles != null) {
+                for (ProjectileData projectile : projectiles) {
+                    result.add(projectile.toProjectile());
                 }
             }
             return result;
@@ -444,6 +464,34 @@ public final class SaveManager {
 
         Npc toNpc() {
             return new Npc(id, name, position.toPosition());
+        }
+    }
+
+    static final class ProjectileData {
+        String id;
+        ProjectileOwner owner;
+        PositionData position;
+        Direction direction;
+        int speed;
+        int damage;
+        int remainingRange;
+        boolean alive;
+
+        static ProjectileData from(Projectile projectile) {
+            ProjectileData data = new ProjectileData();
+            data.id = projectile.getId();
+            data.owner = projectile.getOwner();
+            data.position = PositionData.from(projectile.getPosition());
+            data.direction = projectile.getDirection();
+            data.speed = projectile.getSpeed();
+            data.damage = projectile.getDamage();
+            data.remainingRange = projectile.getRemainingRange();
+            data.alive = projectile.isAlive();
+            return data;
+        }
+
+        Projectile toProjectile() {
+            return new Projectile(id, owner, position.toPosition(), direction, speed, damage, remainingRange, alive);
         }
     }
 

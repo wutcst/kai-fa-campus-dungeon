@@ -82,6 +82,17 @@ public class TileRendererTest {
     }
 
     @Test
+    public void rendererUsesProjectileGlyphAndColorForVisibleProjectile() {
+        GameState state = new GameEngine().playWithInputString("n123sdj!tick(1)").getState();
+        Position projectilePosition = state.getProjectiles().get(0).getPosition();
+        TileRenderer renderer = new TileRenderer();
+
+        assertEquals(TileRenderer.PROJECTILE_COLOR,
+                renderer.colorFor(state, projectilePosition.getX(), projectilePosition.getY()));
+        assertEquals("*", renderer.glyphFor(state, projectilePosition.getX(), projectilePosition.getY()));
+    }
+
+    @Test
     public void rendererProvidesDistinctPixelGlyphsForGameObjects() {
         TileRenderer renderer = new TileRenderer();
         GameState state = new GameEngine().playWithInputString("n123sd").getState();

@@ -6,6 +6,7 @@ import cn.edu.whut.sept.dungeon.entity.Enemy;
 import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Npc;
 import cn.edu.whut.sept.dungeon.entity.Trap;
+import cn.edu.whut.sept.dungeon.projectile.Projectile;
 import cn.edu.whut.sept.dungeon.world.Position;
 import cn.edu.whut.sept.dungeon.world.Tile;
 import cn.edu.whut.sept.dungeon.world.World;
@@ -26,6 +27,7 @@ public final class TileRenderer {
     public static final Color ITEM_COLOR = new Color(96, 170, 105);
     public static final Color NPC_COLOR = new Color(178, 105, 210);
     public static final Color ENEMY_COLOR = new Color(200, 70, 70);
+    public static final Color PROJECTILE_COLOR = new Color(80, 220, 230);
     public static final Color STAIRS_COLOR = new Color(110, 210, 220);
     public static final Color TRAP_COLOR = new Color(230, 120, 45);
 
@@ -47,6 +49,9 @@ public final class TileRenderer {
                 }
                 if (isEnemyAt(state, x, y)) {
                     return ENEMY_COLOR;
+                }
+                if (isProjectileAt(state, x, y)) {
+                    return PROJECTILE_COLOR;
                 }
                 if (isItemAt(state, x, y)) {
                     return ITEM_COLOR;
@@ -90,6 +95,9 @@ public final class TileRenderer {
         Enemy enemy = enemyAt(state, x, y);
         if (enemy != null) {
             return "Defense Committee".equals(enemy.getType()) ? "B" : "!";
+        }
+        if (isProjectileAt(state, x, y)) {
+            return "*";
         }
         Item item = itemAt(state, x, y);
         if (item != null) {
@@ -181,6 +189,17 @@ public final class TileRenderer {
 
     private boolean isEnemyAt(GameState state, int x, int y) {
         return enemyAt(state, x, y) != null;
+    }
+
+    private boolean isProjectileAt(GameState state, int x, int y) {
+        for (Projectile projectile : state.getProjectiles()) {
+            if (projectile.isAlive()
+                    && projectile.getPosition().getX() == x
+                    && projectile.getPosition().getY() == y) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Enemy enemyAt(GameState state, int x, int y) {

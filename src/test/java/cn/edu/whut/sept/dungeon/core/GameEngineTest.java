@@ -1,14 +1,21 @@
 package cn.edu.whut.sept.dungeon.core;
 
 import cn.edu.whut.sept.dungeon.world.Position;
+import cn.edu.whut.sept.dungeon.world.Room;
+import cn.edu.whut.sept.dungeon.world.Tile;
 import cn.edu.whut.sept.dungeon.world.World;
 import cn.edu.whut.sept.dungeon.entity.Enemy;
+import cn.edu.whut.sept.dungeon.entity.Inventory;
 import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Npc;
 import cn.edu.whut.sept.dungeon.entity.Trap;
+import cn.edu.whut.sept.dungeon.quest.QuestState;
 import org.junit.Test;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Queue;
 
 import static org.junit.Assert.assertEquals;
@@ -293,14 +300,13 @@ public class GameEngineTest {
         GameState adjacentState = stateAfterPath(state, adjacent);
         GameState turned = facePlayer(adjacentState, attackDirection);
         GameState attacked = turned.attack();
-        Enemy damagedEnemy = attacked.enemyAt(enemy.getPosition());
 
         assertEquals(InputCommand.Type.ATTACK, InputCommand.fromKey('j').getType());
         assertEquals(adjacent, turned.getPlayer().getPosition());
         assertEquals(adjacent, attacked.getPlayer().getPosition());
-        assertNotNull(damagedEnemy);
-        assertTrue(damagedEnemy.getHp() < turned.enemyAt(enemy.getPosition()).getHp());
-        assertTrue(attacked.getMessage().contains("Hit " + enemy.getType()));
+        assertEquals(1, attacked.getProjectiles().size());
+        assertEquals(turned.enemyAt(enemy.getPosition()).getHp(), attacked.enemyAt(enemy.getPosition()).getHp());
+        assertTrue(attacked.getMessage().contains("Fired Keyboard Pistol"));
     }
 
     @Test
@@ -309,7 +315,36 @@ public class GameEngineTest {
 
         assertEquals(Direction.EAST, state.getPlayer().getDirection());
         assertEquals(1, state.getPlayer().getSteps());
-        assertEquals("Attacked EAST, but hit nothing.", state.getMessage());
+        assertEquals(1, state.getProjectiles().size());
+        assertEquals("Fired Keyboard Pistol EAST.", state.getMessage());
+    }
+
+    @Test
+    public void projectileMovesOnTickAndDamagesEnemyAtRange() {
+        GameState state = projectileTestState();
+
+        GameState fired = state.attack();
+        GameState firstTick = fired.tick();
+        GameState secondTick = firstTick.tick();
+        Enemy damagedEnemy = findEnemy(secondTick, "target");
+
+        assertEquals(1, fired.getProjectiles().size());
+        assertEquals(new Position(4, 2), firstTick.getProjectiles().get(0).getPosition());
+        assertTrue(damagedEnemy.getHp() < findEnemy(state, "target").getHp());
+        assertTrue(secondTick.getProjectiles().isEmpty());
+        assertEquals("Projectile hit Bug for 4 damage.", secondTick.getMessage());
+    }
+
+    @Test
+    public void projectileDisappearsWhenItHitsWall() {
+        GameState state = facePlayer(projectileTestState(), Direction.WEST);
+
+        GameState fired = state.attack();
+        GameState afterWall = fired.tick().tick().tick();
+
+        assertEquals(1, fired.getProjectiles().size());
+        assertTrue(afterWall.getProjectiles().isEmpty());
+        assertEquals("Projectile hit a wall.", afterWall.getMessage());
     }
 
     @Test
@@ -754,6 +789,28 @@ public class GameEngineTest {
                 state.isSaveRequested(), state.getStatus(), turnedPlayer, state.getWorld(), state.getInventory(),
                 state.getItems(), state.getEnemies(), state.getNpcs(), state.getTraps(), state.getQuest(),
                 state.copyExplored(), state.getMessage());
+    }
+
+    private GameState projectileTestState() {
+        int width = 8;
+        int height = 5;
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = x == 0 || y == 0 || x == width - 1 || y == height - 1 ? Tile.WALL : Tile.FLOOR;
+            }
+        }
+        Position playerPosition = new Position(3, 2);
+        World world = new World(width, height, tiles,
+                Collections.singletonList(new Room(1, 1, 6, 3)),
+                Collections.emptyList(), playerPosition, new Position(6, 2), new Position(6, 3));
+        GameState.PlayerState player = GameState.PlayerState.of(playerPosition.getX(), playerPosition.getY(),
+                Direction.EAST, 0);
+        List<Enemy> enemies = new ArrayList<Enemy>();
+        enemies.add(Enemy.bug("target", new Position(5, 2)));
+        return GameState.restored(123L, 1, true, false, false, GameStatus.PLAYING, player, world,
+                Inventory.empty(), Collections.<Item>emptyList(), enemies, Collections.<Npc>emptyList(),
+                Collections.<Trap>emptyList(), QuestState.initial(), null, "Projectile test.");
     }
 
     private GameState descendToDepth(GameState state, int targetDepth) {
