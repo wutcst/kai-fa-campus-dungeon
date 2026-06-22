@@ -2,6 +2,7 @@ package cn.edu.whut.sept.dungeon.render;
 
 import cn.edu.whut.sept.dungeon.core.GameEngine;
 import cn.edu.whut.sept.dungeon.core.GameState;
+import cn.edu.whut.sept.dungeon.core.GameText;
 import cn.edu.whut.sept.dungeon.core.InputCommand;
 import cn.edu.whut.sept.dungeon.core.VisibilityState;
 import cn.edu.whut.sept.dungeon.core.Direction;
@@ -21,17 +22,38 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TileRendererTest {
     @Test
     public void rendererUsesLargeCameraViewportForActionDungeon() {
         TilePanel tilePanel = new TilePanel();
-        HudPanel hudPanel = new HudPanel();
+        StatusPanel statusPanel = new StatusPanel();
+        LogPanel logPanel = new LogPanel();
 
-        assertEquals(24, TileRenderer.TILE_SIZE);
+        assertEquals(32, TileRenderer.TILE_SIZE);
+        assertEquals(21, TileRenderer.VIEWPORT_WIDTH);
+        assertEquals(21, TileRenderer.VIEWPORT_HEIGHT);
         assertEquals(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE, tilePanel.getPreferredSize().width);
         assertEquals(TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE, tilePanel.getPreferredSize().height);
-        assertEquals(tilePanel.getPreferredSize().width, hudPanel.getPreferredSize().width);
+        statusPanel.setState(new GameEngine().playWithInputString("n123s").getState());
+        logPanel.setState(GameState.initial());
+        assertEquals(672, tilePanel.getPreferredSize().width);
+        assertEquals(672, tilePanel.getPreferredSize().height);
+        assertTrue(statusPanel.getPreferredSize().width > 0);
+        assertEquals(1, logPanel.getLineCountForTest());
+    }
+
+    @Test
+    public void logPanelKeepsRecentMessagesWhenManyStatesArrive() {
+        LogPanel logPanel = new LogPanel();
+        GameState state = new GameEngine().playWithInputString("n123s").getState();
+
+        for (int i = 0; i < 25; i++) {
+            logPanel.setState(state.withMessage("日志 " + i));
+        }
+
+        assertEquals(20, logPanel.getLineCountForTest());
     }
 
     @Test
@@ -272,7 +294,7 @@ public class TileRendererTest {
                     return current;
                 }
                 if (before.equals(current.getPlayer().getPosition())
-                        && "Combat room locked. Defeat all enemies first.".equals(current.getMessage())) {
+                        && GameText.combatRoomLockedExit().equals(current.getMessage())) {
                     current = clearCurrentCombatRoom(current);
                     interruptedByCombatRoom = true;
                     break;

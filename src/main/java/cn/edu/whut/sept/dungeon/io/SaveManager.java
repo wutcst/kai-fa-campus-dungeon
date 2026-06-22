@@ -3,6 +3,7 @@ package cn.edu.whut.sept.dungeon.io;
 import cn.edu.whut.sept.dungeon.core.Direction;
 import cn.edu.whut.sept.dungeon.core.GameStatus;
 import cn.edu.whut.sept.dungeon.core.GameState;
+import cn.edu.whut.sept.dungeon.core.GameText;
 import cn.edu.whut.sept.dungeon.entity.Enemy;
 import cn.edu.whut.sept.dungeon.entity.Inventory;
 import cn.edu.whut.sept.dungeon.entity.Item;
@@ -61,18 +62,18 @@ public final class SaveManager {
 
     public GameState load() {
         if (!saveFile.exists()) {
-            return GameState.initial().withMessage("No saved game.");
+            return GameState.initial().withMessage(GameText.noSavedGame());
         }
 
         try (FileReader reader = new FileReader(saveFile)) {
             SaveData data = gson.fromJson(reader, SaveData.class);
             if (data == null) {
-                return GameState.initial().withMessage("No saved game.");
+                return GameState.initial().withMessage(GameText.noSavedGame());
             }
             if (!data.isLoadable()) {
-                return GameState.initial().withMessage("Saved game is incompatible.");
+                return GameState.initial().withMessage(GameText.incompatibleSave());
             }
-            return data.toGameState().withMessage("Loaded saved game.");
+            return data.toGameState().withMessage(GameText.loadedSave());
         } catch (IOException exception) {
             throw new IllegalStateException("Could not load game.", exception);
         }

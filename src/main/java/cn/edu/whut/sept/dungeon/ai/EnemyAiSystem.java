@@ -3,6 +3,7 @@ package cn.edu.whut.sept.dungeon.ai;
 import cn.edu.whut.sept.dungeon.combat.CombatSystem;
 import cn.edu.whut.sept.dungeon.core.Direction;
 import cn.edu.whut.sept.dungeon.core.GameState;
+import cn.edu.whut.sept.dungeon.core.GameText;
 import cn.edu.whut.sept.dungeon.entity.Enemy;
 import cn.edu.whut.sept.dungeon.projectile.Projectile;
 import cn.edu.whut.sept.dungeon.world.Position;
@@ -54,7 +55,7 @@ public final class EnemyAiSystem {
                 int damage = CombatSystem.damage(enemy.getAtk(), nextPlayer.getDef());
                 nextPlayer = nextPlayer.takeDamage(damage);
                 nextEnemies.add(enemy);
-                message = enemy.getType() + " hits you for " + damage + " damage.";
+                message = GameText.enemyAttack(enemy.getType(), damage) + "。";
                 continue;
             }
             if (enemy.isReviewShooter()) {
@@ -65,7 +66,7 @@ public final class EnemyAiSystem {
                     nextProjectiles.add(Projectile.enemy("enemy-shot-" + tick + "-" + enemy.getId(),
                             enemy.getPosition(), shotDirection, enemy.getAtk(), ENEMY_PROJECTILE_RANGE));
                     nextEnemies.add(enemy);
-                    message = enemy.getType() + " fires a review note.";
+                    message = GameText.shooterFires(enemy.getType());
                     continue;
                 }
                 if (distance < SHOOTER_MIN_DISTANCE) {
@@ -102,7 +103,7 @@ public final class EnemyAiSystem {
         if (phase == 1 && shotDirection != null && tick % BOSS_PHASE_ONE_COOLDOWN_TICKS == 0) {
             projectiles.add(Projectile.enemy("boss-question-" + tick, boss.getPosition(),
                     shotDirection, boss.getAtk(), BOSS_PROJECTILE_RANGE));
-            message = "Defense Committee phase 1 asks a direct question.";
+            message = GameText.bossPhaseOne();
         } else if (phase == 2 && tick % BOSS_PHASE_TWO_COOLDOWN_TICKS == 0) {
             Direction primary = shotDirection == null ? preferredDirectionsToward(boss.getPosition(), player.getPosition())[0]
                     : shotDirection;
@@ -111,7 +112,7 @@ public final class EnemyAiSystem {
                 projectiles.add(Projectile.enemy("boss-triple-" + tick + "-" + i, boss.getPosition(),
                         directions[i], boss.getAtk() + 1, BOSS_PROJECTILE_RANGE));
             }
-            message = "Defense Committee phase 2 starts a triple review.";
+            message = GameText.bossPhaseTwo();
         } else if (phase == 3 && tick % BOSS_PHASE_THREE_COOLDOWN_TICKS == 0) {
             Direction primary = shotDirection == null ? preferredDirectionsToward(boss.getPosition(), player.getPosition())[0]
                     : shotDirection;
@@ -120,9 +121,9 @@ public final class EnemyAiSystem {
             Enemy summon = bossSummon(world, boss, activeRoomId, alreadyMoved, allEnemies, tick);
             if (summon != null) {
                 summons.add(summon);
-                message = "Defense Committee phase 3 summons final questions.";
+                message = GameText.bossPhaseThreeSummons();
             } else {
-                message = "Defense Committee phase 3 launches final questions.";
+                message = GameText.bossPhaseThreeFires();
             }
         }
 

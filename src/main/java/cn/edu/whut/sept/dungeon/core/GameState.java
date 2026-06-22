@@ -16,6 +16,7 @@ import cn.edu.whut.sept.dungeon.room.RoomStatus;
 import cn.edu.whut.sept.dungeon.room.RoomType;
 import cn.edu.whut.sept.dungeon.world.Position;
 import cn.edu.whut.sept.dungeon.world.Room;
+import cn.edu.whut.sept.dungeon.world.Tile;
 import cn.edu.whut.sept.dungeon.world.World;
 import cn.edu.whut.sept.dungeon.world.WorldGenerator;
 
@@ -24,7 +25,7 @@ import java.util.Collections;
 import java.util.List;
 
 public final class GameState {
-    public static final int VISION_RADIUS = 5;
+    public static final int VISION_RADIUS = 6;
     private static final String REPORT = "report";
     private static final String LAPTOP = "laptop";
     private static final String SLIDES = "slides";
@@ -141,7 +142,7 @@ public final class GameState {
         return new GameState(null, 1, false, false, false, GameStatus.PLAYING, PlayerState.origin(),
                 null, Inventory.empty(), Collections.<Item>emptyList(), Collections.<Enemy>emptyList(),
                 Collections.<Npc>emptyList(), Collections.<Trap>emptyList(),
-                QuestState.initial(), null, null, "Ready.");
+                QuestState.initial(), null, null, GameText.ready());
     }
 
     public static GameState newGame(long seed) {
@@ -152,7 +153,7 @@ public final class GameState {
                 Inventory.empty(), createItems(world), enemies, createNpcs(world),
                 createTraps(world, 1), QuestState.initial(),
                 createExploredFor(world, player), createVisibleFor(world, player),
-                "New game started with seed " + seed + ".");
+                GameText.newGame(seed));
     }
 
     public static GameState restored(Long seed, boolean started, boolean exited, boolean saveRequested,
@@ -368,16 +369,16 @@ public final class GameState {
         return new GameState(seed, depth, started, exited, saveRequested, tick + 1, nextStatus, aiResult.getPlayer(), world,
                 inventory, items, aiResult.getEnemies(), aiResult.getProjectiles(), rooms, npcs, traps, quest,
                 explored, visible, firstMessage(aiResult.getMessage(), projectileResult.message,
-                nextStatus == GameStatus.GAME_OVER ? "Game over. HP reached 0." : "Tick " + (tick + 1) + "."))
+                nextStatus == GameStatus.GAME_OVER ? GameText.gameOver() : GameText.tick(tick + 1)))
                 .refreshRoomState();
     }
 
     public GameState movePlayer(Direction direction) {
         if (isGameOver()) {
-            return withMessage("Game over. Start a new game to try again.");
+            return withMessage(GameText.gameOverActionBlocked());
         }
         if (!started || world == null || direction == null) {
-            return withMessage("Start a new game first.");
+            return withMessage(GameText.startNewGameFirst());
         }
 
         PlayerState turnedPlayer = player.withDirection(direction);
@@ -388,28 +389,29 @@ public final class GameState {
         }
         if (!world.isWalkable(target)) {
             return new GameState(seed, depth, started, exited, saveRequested, tick, status, turnedPlayer, world,
-                    inventory, items, enemies, projectiles, rooms, npcs, traps, quest, explored, visible, "Blocked by wall.");
+                    inventory, items, enemies, projectiles, rooms, npcs, traps, quest, explored, visible,
+                    GameText.blockedByWall());
         }
         if (isLeavingActiveCombatRoom(target)) {
             return new GameState(seed, depth, started, exited, saveRequested, tick, status, turnedPlayer, world,
                     inventory, items, enemies, projectiles, rooms, npcs, traps, quest, explored, visible,
-                    "Combat room locked. Defeat all enemies first.");
+                    GameText.combatRoomLockedExit());
         }
 
         PlayerState movedPlayer = turnedPlayer.moveTo(target);
         GameState movedState = new GameState(seed, depth, started, exited, saveRequested, tick, status, movedPlayer, world,
                 inventory, items, enemies, projectiles, rooms, npcs, traps, quest,
                 createExploredFor(world, movedPlayer, explored), createVisibleFor(world, movedPlayer),
-                "Moved " + direction.name() + ".");
+                GameText.moved(direction));
         return movedState.refreshRoomState().triggerTrapAtPlayer();
     }
 
     public GameState attack() {
         if (isGameOver()) {
-            return withMessage("Game over. Start a new game to try again.");
+            return withMessage(GameText.gameOverActionBlocked());
         }
         if (!started || world == null) {
-            return withMessage("Start a new game first.");
+            return withMessage(GameText.startNewGameFirst());
         }
         Projectile projectile = Projectile.player("player-shot-" + (tick + 1) + "-" + projectiles.size(),
                 player.getPosition(), player.getDirection(), KEYBOARD_PISTOL_DAMAGE, KEYBOARD_PISTOL_RANGE);
@@ -417,15 +419,15 @@ public final class GameState {
         nextProjectiles.add(projectile);
         return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                 inventory, items, enemies, nextProjectiles, rooms, npcs, traps, quest, explored, visible,
-                "Fired Keyboard Pistol " + player.getDirection().name() + ".");
+                GameText.firedKeyboardPistol(player.getDirection()));
     }
 
     public GameState interact() {
         if (isGameOver()) {
-            return withMessage("Game over. Start a new game to try again.");
+            return withMessage(GameText.gameOverActionBlocked());
         }
         if (!started || world == null) {
-            return withMessage("Start a new game first.");
+            return withMessage(GameText.startNewGameFirst());
         }
 
         Npc npc = npcAt(player.getPosition());
@@ -437,20 +439,20 @@ public final class GameState {
         }
         if (player.getPosition().equals(world.getDefenseHallPosition())) {
             if (bossAlive()) {
-                return withMessage("Defense hall guarded. Defeat the Defense Committee first.");
+                return withMessage(GameText.defenseHallGuarded());
             }
             if (inventory.containsAll(REPORT, LAPTOP, SLIDES, PASS)) {
                 return new GameState(seed, depth, started, exited, saveRequested, tick, GameStatus.COMPLETED, player, world,
                         inventory, items, enemies, projectiles, rooms, npcs, traps, quest.withCompleted(), explored, visible,
-                        "Defense completed in " + player.getSteps() + " steps. Excellent software engineering practice!");
+                        GameText.defenseCompleted(player.getSteps()));
             }
-            return withMessage("Defense hall locked. Missing: " + missingDefenseMaterials() + ".");
+            return withMessage(GameText.defenseHallLocked(missingDefenseMaterials()));
         }
         Item item = itemAt(player.getPosition());
         if (item != null) {
             return collectItem(item);
         }
-        return withMessage("Nothing to interact with here.");
+        return withMessage(GameText.nothingHere());
     }
 
     private GameState descendToNextDepth() {
@@ -463,24 +465,24 @@ public final class GameState {
                 Collections.<Projectile>emptyList(), createNpcs(nextWorld),
                 createTraps(nextWorld, nextDepth), quest,
                 createExploredFor(nextWorld, nextPlayer), createVisibleFor(nextWorld, nextPlayer),
-                "Descended to depth " + nextDepth + ".");
+                GameText.descendedToDepth(nextDepth));
     }
 
     public GameState answer(String answer) {
         if (isGameOver()) {
-            return withMessage("Game over. Start a new game to try again.");
+            return withMessage(GameText.gameOverActionBlocked());
         }
         if ("pom.xml".equalsIgnoreCase(answer == null ? "" : answer.trim())) {
             return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                     inventory, items, enemies, projectiles, rooms, npcs, traps, quest.withMavenPuzzleSolved(), explored, visible,
-                    "Correct. Maven project configuration lives in pom.xml.");
+                    GameText.mavenCorrect());
         }
-        return withMessage("Incorrect. Hint: Maven keeps project configuration in a file named pom.xml.");
+        return withMessage(GameText.mavenIncorrect());
     }
 
     public GameState describeInventory() {
         if (isGameOver()) {
-            return withMessage("Game over. Start a new game to try again.");
+            return withMessage(GameText.gameOverActionBlocked());
         }
         if (inventory.contains(BIG_POTION) && player.getHp() < player.getMaxHp()) {
             return usePotion(BIG_POTION, 16);
@@ -493,9 +495,9 @@ public final class GameState {
             PlayerState boostedPlayer = player.withCoffeeBoost(3);
             return new GameState(seed, depth, started, exited, saveRequested, tick, status, boostedPlayer, world,
                     nextInventory, items, enemies, projectiles, rooms, npcs, traps, quest, explored, visible,
-                    "Coffee inspiration active. Next attacks gain +3 ATK.");
+                    GameText.coffeeBoostActive());
         }
-        return withMessage("Inventory: " + inventory.summary() + ".");
+        return withMessage(GameText.inventory(inventory));
     }
 
     private GameState usePotion(String potionId, int amount) {
@@ -503,7 +505,7 @@ public final class GameState {
         PlayerState healedPlayer = player.heal(amount);
         return new GameState(seed, depth, started, exited, saveRequested, tick, status, healedPlayer, world,
                 nextInventory, items, enemies, projectiles, rooms, npcs, traps, quest, explored, visible,
-                "Used " + potionId + " and restored " + (healedPlayer.getHp() - player.getHp()) + " HP.");
+                GameText.usedPotion(potionId, healedPlayer.getHp() - player.getHp()));
     }
 
     public GameState damagePlayer(int amount) {
@@ -512,7 +514,7 @@ public final class GameState {
         }
         PlayerState damagedPlayer = player.damage(amount);
         return withPlayerAfterDamage(damagedPlayer,
-                damagedPlayer.getHp() <= 0 ? "Game over. HP reached 0." : "Player took " + amount + " damage.");
+                damagedPlayer.getHp() <= 0 ? GameText.gameOver() : GameText.playerTookDamage(amount));
     }
 
     public GameState advanceEnemyTurn() {
@@ -548,7 +550,7 @@ public final class GameState {
         if (nextStatus == GameStatus.GAME_OVER) {
             return new GameState(seed, depth, started, exited, saveRequested, tick, nextStatus, nextPlayer, world,
                     inventory, items, appendRemainingEnemies(nextEnemies), projectiles, rooms, npcs, traps, quest, explored, visible,
-                    joinedTurnMessage(events, "Game over. HP reached 0."));
+                    joinedTurnMessage(events, GameText.gameOver()));
         }
         if (events.isEmpty() && sameEnemyPositions(enemies, nextEnemies)) {
             return this;
@@ -624,15 +626,15 @@ public final class GameState {
         if (current.getStatus() == RoomStatus.LOCKED) {
             return withRoom(replaceRoom(current.activate()), items,
                     current.getType() == RoomType.BOSS
-                            ? "Boss room sealed. Defeat the Defense Committee."
-                            : "Combat room locked. Clear all enemies.");
+                            ? GameText.bossRoomSealed()
+                            : GameText.combatRoomLocked());
         }
         if (current.getStatus() == RoomStatus.ACTIVE && !hasAliveEnemyInRoom(current.getId())) {
             List<RoomState> nextRooms = replaceRoom(current.clear().withRewardCreated());
             List<Item> nextItems = current.isRewardCreated() ? items : addRoomReward(items, current.getId());
             String nextMessage = message == null || message.length() == 0
-                    ? "Room cleared. Reward unlocked."
-                    : message + " Room cleared. Reward unlocked.";
+                    ? GameText.roomClearedRewardUnlocked()
+                    : message + " " + GameText.roomClearedRewardUnlocked();
             return withRoom(nextRooms, nextItems, nextMessage);
         }
         return this;
@@ -704,7 +706,8 @@ public final class GameState {
         List<Item> result = new ArrayList<Item>(currentItems);
         Room room = world.getRooms().get(roomId);
         Position rewardPosition = freeRewardPosition(room, currentItems);
-        result.add(new Item("room-reward-" + depth + "-" + roomId, "room reward", rewardPosition, false));
+        String rewardId = "room-reward-" + depth + "-" + roomId;
+        result.add(new Item(rewardId, GameText.itemName(rewardId), rewardPosition, false));
         return result;
     }
 
@@ -734,9 +737,9 @@ public final class GameState {
 
     private String enemyAttackMessage(Enemy enemy, int damage) {
         if (isBoss(enemy) && enemy.getHp() <= 14) {
-            return "Defense Committee launches final questions for " + damage + " damage";
+            return GameText.bossFinalQuestionDamage(damage);
         }
-        return enemy.getType() + " hits you for " + damage + " damage";
+        return GameText.enemyAttack(enemy.getType(), damage);
     }
 
     public Trap trapAt(Position position) {
@@ -760,18 +763,18 @@ public final class GameState {
         if (Trap.DAMAGE.equals(trap.getType())) {
             nextPlayer = player.damage(TRAP_DAMAGE);
             nextStatus = nextPlayer.getHp() <= 0 ? GameStatus.GAME_OVER : status;
-            nextMessage = "Damage trap triggered for " + TRAP_DAMAGE + " HP.";
+            nextMessage = GameText.damageTrap(TRAP_DAMAGE);
             if (nextStatus == GameStatus.GAME_OVER) {
-                nextMessage = nextMessage + " Game over. HP reached 0.";
+                nextMessage = nextMessage + " " + GameText.gameOver();
             }
         } else if (Trap.TELEPORT.equals(trap.getType())) {
             nextPlayer = player.reposition(world.getSpawnPosition());
-            nextMessage = "Teleport trap triggered. Returned to entrance.";
+            nextMessage = GameText.teleportTrap();
         } else if (Trap.WEAKNESS.equals(trap.getType())) {
             nextPlayer = player.weaken(WEAKNESS_PENALTY);
-            nextMessage = "Weakness trap triggered. ATK decreased by " + WEAKNESS_PENALTY + ".";
+            nextMessage = GameText.weaknessTrap(WEAKNESS_PENALTY);
         } else {
-            nextMessage = "Trap triggered.";
+            nextMessage = GameText.genericTrap();
         }
         return new GameState(seed, depth, started, exited, saveRequested, tick, nextStatus, nextPlayer, world,
                 inventory, items, enemies, projectiles, rooms, npcs, nextTraps, quest,
@@ -791,12 +794,12 @@ public final class GameState {
         Enemy damagedEnemy = enemy.damage(damage);
         List<Enemy> nextEnemies = replaceEnemy(enemy, damagedEnemy);
         PlayerState nextPlayer = turnedPlayer.afterAttack();
-        String nextMessage = "Hit " + enemy.getType() + " for " + damage + " damage.";
+        String nextMessage = GameText.hitEnemy(enemy.getType(), damage);
         if (!damagedEnemy.isAlive()) {
             nextPlayer = nextPlayer.gainExp(enemy.getExpReward());
-            nextMessage = "Defeated " + enemy.getType() + " and gained " + enemy.getExpReward() + " EXP.";
+            nextMessage = GameText.defeatedEnemy(enemy.getType(), enemy.getExpReward());
             if (isBoss(enemy)) {
-                nextMessage = "Defeated the Defense Committee. Final defense is ready for submission.";
+                nextMessage = GameText.defeatedBoss();
             }
         }
         return new GameState(seed, depth, started, exited, saveRequested, tick, status, nextPlayer, world,
@@ -820,7 +823,7 @@ public final class GameState {
                         current.getPosition().getY() + current.getDirection().getDy());
                 if (!world.contains(nextPosition.getX(), nextPosition.getY()) || !world.isWalkable(nextPosition)) {
                     current = current.kill();
-                    nextMessage = "Projectile hit a wall.";
+                    nextMessage = GameText.projectileHitWall();
                     break;
                 }
                 Enemy target = enemyAt(nextEnemies, nextPosition);
@@ -828,11 +831,10 @@ public final class GameState {
                     Enemy damagedEnemy = target.damage(projectile.getDamage());
                     nextEnemies = replaceEnemy(nextEnemies, target, damagedEnemy);
                     current = current.kill();
-                    nextMessage = "Projectile hit " + target.getType() + " for " + projectile.getDamage() + " damage.";
+                    nextMessage = GameText.projectileHitEnemy(target.getType(), projectile.getDamage());
                     if (!damagedEnemy.isAlive()) {
                         nextPlayer = nextPlayer.gainExp(target.getExpReward());
-                        nextMessage = "Projectile defeated " + target.getType()
-                                + " and gained " + target.getExpReward() + " EXP.";
+                        nextMessage = GameText.projectileDefeatedEnemy(target.getType(), target.getExpReward());
                     }
                     break;
                 }
@@ -840,7 +842,7 @@ public final class GameState {
                     int damage = CombatSystem.damage(projectile.getDamage(), nextPlayer.getDef() + ENEMY_PROJECTILE_DEFENSE);
                     nextPlayer = nextPlayer.damage(damage);
                     current = current.kill();
-                    nextMessage = "Enemy projectile hit you for " + damage + " damage.";
+                    nextMessage = GameText.enemyProjectileHitPlayer(damage);
                     break;
                 }
                 current = current.moveTo(nextPosition);
@@ -848,7 +850,7 @@ public final class GameState {
             if (current.isAlive()) {
                 nextProjectiles.add(current);
             } else if (nextMessage == null) {
-                nextMessage = "Projectile expired.";
+                nextMessage = GameText.projectileExpired();
             }
         }
 
@@ -1046,13 +1048,13 @@ public final class GameState {
         }
         Inventory nextInventory = inventory.add(item.getId());
         PlayerState nextPlayer = player;
-        String nextMessage = "Picked up " + item.getName() + ".";
+        String nextMessage = GameText.pickedUp(item.getName());
         if (isWeapon(item.getId())) {
             nextPlayer = player.equipWeapon(item.getId(), weaponBonus(item.getId()));
-            nextMessage = "Equipped " + item.getName() + ". ATK is now " + nextPlayer.getAtk() + ".";
+            nextMessage = GameText.equippedWeapon(item.getName(), nextPlayer.getAtk());
         } else if (isArmor(item.getId())) {
             nextPlayer = player.equipArmor(item.getId(), armorBonus(item.getId()));
-            nextMessage = "Equipped " + item.getName() + ". DEF is now " + nextPlayer.getDef() + ".";
+            nextMessage = GameText.equippedArmor(item.getName(), nextPlayer.getDef());
         }
         return new GameState(seed, depth, started, exited, saveRequested, tick, status, nextPlayer, world,
                 nextInventory, nextItems, enemies, projectiles, rooms, npcs, traps, quest, explored, visible, nextMessage);
@@ -1061,36 +1063,36 @@ public final class GameState {
     private GameState talkTo(Npc npc) {
         if ("librarian".equals(npc.getId())) {
             if (!inventory.contains(STUDENT_CARD)) {
-                return withMessage("Librarian: Bring your student-card before I lend the defense report.");
+                return withMessage(GameText.librarianNeedsCard());
             }
             if (!inventory.contains(REPORT)) {
-                return grantItem(REPORT, "Librarian: Student-card checked. Here is the defense report.",
+                return grantItem(REPORT, GameText.librarianGrantsReport(),
                         quest.withReportIssued());
             }
-            return withMessage("Librarian: The report is already in your backpack.");
+            return withMessage(GameText.librarianAlreadyDone());
         }
         if ("assistant".equals(npc.getId())) {
             if (!inventory.contains(USB)) {
-                return withMessage("Assistant: Find a usb first; the demo slides need to be exported.");
+                return withMessage(GameText.assistantNeedsUsb());
             }
             if (!quest.isMavenPuzzleSolved()) {
-                return withMessage("Assistant: Course puzzle - what is Maven's configuration file? Use !answer(pom.xml).");
+                return withMessage(GameText.assistantMavenPuzzle());
             }
             Inventory nextInventory = inventory.add(LAPTOP).add(SLIDES);
             return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                     nextInventory, items, enemies, projectiles, rooms, npcs, traps, quest.withSlidesExported(), explored, visible,
-                    "Assistant: USB accepted. Laptop ready and slides exported.");
+                    GameText.assistantGrantsSlides());
         }
         if ("teacher".equals(npc.getId())) {
             if (!inventory.containsAll(REPORT, LAPTOP, SLIDES)) {
-                return withMessage("Teacher: I need to see report, laptop, and slides before issuing the pass.");
+                return withMessage(GameText.teacherNeedsMaterials());
             }
             if (!inventory.contains(PASS)) {
-                return grantItem(PASS, "Teacher: Materials checked. Take this defense pass.", quest.withPassIssued());
+                return grantItem(PASS, GameText.teacherGrantsPass(), quest.withPassIssued());
             }
-            return withMessage("Teacher: You already have the defense pass. Go to the defense hall.");
+            return withMessage(GameText.teacherAlreadyDone());
         }
-        return withMessage(npc.getName() + ": Keep exploring and prepare your defense.");
+        return withMessage(GameText.npcFallback(npc.getName()));
     }
 
     private GameState grantItem(String itemId, String nextMessage, QuestState nextQuest) {
@@ -1109,7 +1111,7 @@ public final class GameState {
 
     private void addMissing(List<String> missing, String itemId) {
         if (!inventory.contains(itemId)) {
-            missing.add(itemId);
+            missing.add(GameText.itemName(itemId));
         }
     }
 
@@ -1324,30 +1326,59 @@ public final class GameState {
     }
 
     private static void markRoomOrCorridorVision(World world, PlayerState player, boolean[][] target) {
-        int roomId = roomIdAt(world, player.getPosition());
-        if (roomId >= 0) {
-            markRoomVision(world.getRooms().get(roomId), target);
-            return;
-        }
         markVision(world, player, target);
     }
 
-    private static void markRoomVision(Room room, boolean[][] target) {
-        for (int y = room.getY(); y <= room.getBottom(); y++) {
-            for (int x = room.getX(); x <= room.getRight(); x++) {
-                if (y >= 0 && y < target.length && x >= 0 && x < target[y].length) {
-                    target[y][x] = true;
-                }
-            }
+    private static void markVision(World world, PlayerState player, boolean[][] target) {
+        Position from = player.getPosition();
+        for (int y = player.getY() - VISION_RADIUS; y <= player.getY() + VISION_RADIUS; y++) {
+            castVisionRay(world, from, new Position(player.getX() - VISION_RADIUS, y), target);
+            castVisionRay(world, from, new Position(player.getX() + VISION_RADIUS, y), target);
+        }
+        for (int x = player.getX() - VISION_RADIUS + 1; x <= player.getX() + VISION_RADIUS - 1; x++) {
+            castVisionRay(world, from, new Position(x, player.getY() - VISION_RADIUS), target);
+            castVisionRay(world, from, new Position(x, player.getY() + VISION_RADIUS), target);
         }
     }
 
-    private static void markVision(World world, PlayerState player, boolean[][] target) {
-        for (int y = player.getY() - VISION_RADIUS; y <= player.getY() + VISION_RADIUS; y++) {
-            for (int x = player.getX() - VISION_RADIUS; x <= player.getX() + VISION_RADIUS; x++) {
-                if (world.contains(x, y)) {
-                    target[y][x] = true;
-                }
+    private static void castVisionRay(World world, Position from, Position to, boolean[][] target) {
+        int x0 = from.getX();
+        int y0 = from.getY();
+        int x1 = to.getX();
+        int y1 = to.getY();
+        int dx = Math.abs(x1 - x0);
+        int dy = Math.abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+        int x = x0;
+        int y = y0;
+        int radiusSquared = VISION_RADIUS * VISION_RADIUS;
+
+        while (true) {
+            int offsetX = x - x0;
+            int offsetY = y - y0;
+            if (offsetX * offsetX + offsetY * offsetY > radiusSquared) {
+                return;
+            }
+            if (!world.contains(x, y)) {
+                return;
+            }
+            target[y][x] = true;
+            if (!(x == x0 && y == y0) && world.getTile(x, y) == Tile.WALL) {
+                return;
+            }
+            if (x == x1 && y == y1) {
+                return;
+            }
+            int twiceError = 2 * err;
+            if (twiceError > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (twiceError < dx) {
+                err += dx;
+                y += sy;
             }
         }
     }
@@ -1580,16 +1611,7 @@ public final class GameState {
     }
 
     private static String displayName(String itemId) {
-        if (STUDENT_CARD.equals(itemId)) {
-            return "student card";
-        }
-        if (SMALL_POTION.equals(itemId)) {
-            return "small potion";
-        }
-        if (BIG_POTION.equals(itemId)) {
-            return "big potion";
-        }
-        return itemId;
+        return GameText.itemName(itemId);
     }
 
     private static boolean isWeapon(String itemId) {

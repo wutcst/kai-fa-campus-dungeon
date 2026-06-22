@@ -16,11 +16,13 @@ import cn.edu.whut.sept.dungeon.world.World;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 
 public final class TileRenderer {
-    public static final int TILE_SIZE = 24;
-    public static final int VIEWPORT_WIDTH = 40;
-    public static final int VIEWPORT_HEIGHT = 24;
+    private static final int BASE_TILE_SIZE = 24;
+    public static final int TILE_SIZE = 32;
+    public static final int VIEWPORT_WIDTH = 21;
+    public static final int VIEWPORT_HEIGHT = 21;
     public static final Color UNEXPLORED_COLOR = Color.BLACK;
     public static final Color SEEN_WALL_COLOR = new Color(34, 38, 45);
     public static final Color SEEN_FLOOR_COLOR = new Color(45, 48, 53);
@@ -127,6 +129,8 @@ public final class TileRenderer {
         if (state == null || state.getWorld() == null) {
             return;
         }
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         World world = state.getWorld();
         int originX = cameraOrigin(state.getPlayer().getX(), world.getWidth(), VIEWPORT_WIDTH);
         int originY = cameraOrigin(state.getPlayer().getY(), world.getHeight(), VIEWPORT_HEIGHT);
@@ -155,8 +159,15 @@ public final class TileRenderer {
         if (state.getVisibilityState(worldX, worldY) != VisibilityState.VISIBLE) {
             return;
         }
-        int drawX = screenX * TILE_SIZE;
-        int drawY = screenY * TILE_SIZE;
+        Graphics2D tileGraphics = tileGraphics(graphics, screenX, screenY);
+        try {
+            drawTileTextureAt(state, tileGraphics, worldX, worldY, 0, 0);
+        } finally {
+            tileGraphics.dispose();
+        }
+    }
+
+    private void drawTileTextureAt(GameState state, Graphics2D graphics, int worldX, int worldY, int drawX, int drawY) {
         if (state.getWorld().getTile(worldX, worldY) == Tile.WALL) {
             graphics.setColor(new Color(92, 99, 113));
             graphics.drawLine(drawX + 3, drawY + 6, drawX + 20, drawY + 6);
@@ -183,7 +194,7 @@ public final class TileRenderer {
         Room room = state.getWorld().getRooms().get(roomState.getId());
         if (worldX == room.getX() || worldX == room.getRight() || worldY == room.getY() || worldY == room.getBottom()) {
             graphics.setColor(ROOM_LOCK_COLOR);
-            graphics.drawRect(drawX + 1, drawY + 1, TILE_SIZE - 3, TILE_SIZE - 3);
+            graphics.drawRect(drawX + 1, drawY + 1, BASE_TILE_SIZE - 3, BASE_TILE_SIZE - 3);
         }
     }
 
@@ -191,8 +202,23 @@ public final class TileRenderer {
         if (state.getVisibilityState(worldX, worldY) != VisibilityState.VISIBLE) {
             return;
         }
-        int drawX = screenX * TILE_SIZE;
-        int drawY = screenY * TILE_SIZE;
+        Graphics2D tileGraphics = tileGraphics(graphics, screenX, screenY);
+        try {
+            drawEntityAt(state, tileGraphics, worldX, worldY, 0, 0);
+        } finally {
+            tileGraphics.dispose();
+        }
+    }
+
+    private Graphics2D tileGraphics(Graphics2D graphics, int screenX, int screenY) {
+        Graphics2D copy = (Graphics2D) graphics.create();
+        copy.translate(screenX * TILE_SIZE, screenY * TILE_SIZE);
+        double scale = (double) TILE_SIZE / BASE_TILE_SIZE;
+        copy.scale(scale, scale);
+        return copy;
+    }
+
+    private void drawEntityAt(GameState state, Graphics2D graphics, int worldX, int worldY, int drawX, int drawY) {
         if (isPlayerAt(state, worldX, worldY)) {
             drawPlayer(state, graphics, drawX, drawY);
             return;

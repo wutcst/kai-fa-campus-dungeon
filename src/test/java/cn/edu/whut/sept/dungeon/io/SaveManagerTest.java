@@ -4,6 +4,7 @@ import cn.edu.whut.sept.dungeon.core.Direction;
 import cn.edu.whut.sept.dungeon.core.GameEngine;
 import cn.edu.whut.sept.dungeon.core.GameStatus;
 import cn.edu.whut.sept.dungeon.core.GameState;
+import cn.edu.whut.sept.dungeon.core.GameText;
 import cn.edu.whut.sept.dungeon.core.InputCommand;
 import cn.edu.whut.sept.dungeon.core.VisibilityState;
 import cn.edu.whut.sept.dungeon.entity.Enemy;
@@ -67,7 +68,7 @@ public class SaveManagerTest {
         assertTrue(loaded.isExplored(saved.getPlayer().getX(), saved.getPlayer().getY()));
         assertEquals(VisibilityState.VISIBLE,
                 loaded.getVisibilityState(loaded.getPlayer().getX(), loaded.getPlayer().getY()));
-        assertEquals("Loaded saved game.", loaded.getMessage());
+        assertEquals(GameText.loadedSave(), loaded.getMessage());
     }
 
     @Test
@@ -131,7 +132,7 @@ public class SaveManagerTest {
         GameState loaded = new GameEngine(new SaveManager(saveFile)).playWithInputString("o").getState();
 
         assertFalse(loaded.isStarted());
-        assertEquals("No saved game.", loaded.getMessage());
+        assertEquals(GameText.noSavedGame(), loaded.getMessage());
     }
 
     @Test
@@ -295,7 +296,7 @@ public class SaveManagerTest {
         GameState loaded = new GameEngine(new SaveManager(saveFile)).playWithInputString("o").getState();
 
         assertFalse(loaded.isStarted());
-        assertEquals("Saved game is incompatible.", loaded.getMessage());
+        assertEquals(GameText.incompatibleSave(), loaded.getMessage());
     }
 
     private File saveFile(String name) {
@@ -365,7 +366,7 @@ public class SaveManagerTest {
                     return current;
                 }
                 if (before.equals(current.getPlayer().getPosition())
-                        && "Combat room locked. Defeat all enemies first.".equals(current.getMessage())) {
+                        && GameText.combatRoomLockedExit().equals(current.getMessage())) {
                     current = clearCurrentCombatRoom(current);
                     interruptedByCombatRoom = true;
                     break;

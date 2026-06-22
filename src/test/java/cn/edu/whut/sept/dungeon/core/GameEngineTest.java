@@ -57,7 +57,7 @@ public class GameEngineTest {
 
         GameState state = result.getState();
         assertFalse(state.isStarted());
-        assertEquals("Unknown input: ?", state.getMessage());
+        assertEquals(GameText.unknownInput('?'), state.getMessage());
     }
 
     @Test
@@ -69,7 +69,7 @@ public class GameEngineTest {
         assertTrue(state.isSaveRequested());
         assertTrue(state.isExited());
         assertEquals(Long.valueOf(123L), state.getSeed());
-        assertEquals("Save requested.", state.getMessage());
+        assertEquals(GameText.saveRequested(), state.getMessage());
     }
 
     @Test
@@ -78,7 +78,7 @@ public class GameEngineTest {
 
         GameState state = result.getState();
         assertFalse(state.isStarted());
-        assertEquals("No input.", state.getMessage());
+        assertEquals(GameText.noInput(), state.getMessage());
     }
 
     @Test
@@ -86,7 +86,7 @@ public class GameEngineTest {
         GameState state = new GameEngine().playWithInputString("n123s!tick(3)").getState();
 
         assertEquals(3L, state.getTick());
-        assertEquals("Tick 3.", state.getMessage());
+        assertEquals(GameText.tick(3), state.getMessage());
     }
 
     @Test
@@ -94,7 +94,7 @@ public class GameEngineTest {
         GameState state = new GameEngine().playWithInputString("n123s!tick(nope)").getState();
 
         assertEquals(0L, state.getTick());
-        assertEquals("Invalid tick count.", state.getMessage());
+        assertEquals(GameText.invalidTickCount(), state.getMessage());
     }
 
     @Test
@@ -118,7 +118,7 @@ public class GameEngineTest {
         assertEquals(initial.getPlayer().getY(), moved.getPlayer().getY());
         assertEquals(Direction.EAST, moved.getPlayer().getDirection());
         assertEquals(1, moved.getPlayer().getSteps());
-        assertEquals("Moved EAST.", moved.getMessage());
+        assertEquals(GameText.moved(Direction.EAST), moved.getMessage());
     }
 
     @Test
@@ -150,7 +150,7 @@ public class GameEngineTest {
         assertEquals(beforeBlockedMove.getPlayer().getY(), state.getPlayer().getY());
         assertTrue(state.getWorld().isWalkable(state.getPlayer().getPosition()));
         assertEquals(Direction.WEST, state.getPlayer().getDirection());
-        assertEquals("Blocked by wall.", state.getMessage());
+        assertEquals(GameText.blockedByWall(), state.getMessage());
     }
 
     @Test
@@ -177,7 +177,7 @@ public class GameEngineTest {
         assertEquals(0, defeated.getPlayer().getHp());
         assertEquals(GameStatus.GAME_OVER, defeated.getStatus());
         assertTrue(defeated.isGameOver());
-        assertEquals("Game over. HP reached 0.", defeated.getMessage());
+        assertEquals(GameText.gameOver(), defeated.getMessage());
     }
 
     @Test
@@ -191,9 +191,9 @@ public class GameEngineTest {
         assertEquals(defeated.getPlayer().getX(), afterMove.getPlayer().getX());
         assertEquals(defeated.getPlayer().getY(), afterMove.getPlayer().getY());
         assertEquals(defeated.getPlayer().getSteps(), afterMove.getPlayer().getSteps());
-        assertEquals("Game over. Start a new game to try again.", afterMove.getMessage());
+        assertEquals(GameText.gameOverActionBlocked(), afterMove.getMessage());
         assertFalse(afterAnswer.getQuest().isMavenPuzzleSolved());
-        assertEquals("Game over. Start a new game to try again.", afterAnswer.getMessage());
+        assertEquals(GameText.gameOverActionBlocked(), afterAnswer.getMessage());
     }
 
     @Test
@@ -210,7 +210,7 @@ public class GameEngineTest {
         assertEquals(adjacent, attacked.getPlayer().getPosition());
         assertNotNull(damagedEnemy);
         assertTrue(damagedEnemy.getHp() < enemy.getHp());
-        assertEquals("Hit " + enemy.getType() + " for 5 damage.", attacked.getMessage());
+        assertEquals(GameText.hitEnemy(enemy.getType(), 5), attacked.getMessage());
     }
 
     @Test
@@ -227,8 +227,8 @@ public class GameEngineTest {
 
         assertNotNull(firstHit.enemyAt(enemy.getPosition()));
         assertEquals(firstHit.getPlayer().getExp() + enemy.getExpReward(), defeated.getPlayer().getExp());
-        assertTrue(defeated.getMessage().contains("Defeated " + enemy.getType()));
-        assertTrue(defeated.getMessage().contains("Room cleared"));
+        assertTrue(defeated.getMessage().contains(GameText.defeatedEnemy(enemy.getType(), enemy.getExpReward())));
+        assertTrue(defeated.getMessage().contains(GameText.roomClearedRewardUnlocked()));
         assertEquals(enemy.getPosition(), movedIntoTile.getPlayer().getPosition());
     }
 
@@ -258,7 +258,7 @@ public class GameEngineTest {
         GameState afterTurn = adjacentState.advanceEnemyTurn();
 
         assertEquals(28, afterTurn.getPlayer().getHp());
-        assertTrue(afterTurn.getMessage().contains(enemy.getType() + " hits you for 2 damage"));
+        assertTrue(afterTurn.getMessage().contains(GameText.enemyAttack(enemy.getType(), 2)));
     }
 
     @Test
@@ -274,7 +274,7 @@ public class GameEngineTest {
 
         assertEquals(30, afterAttack.getPlayer().getHp());
         assertEquals(28, afterEnemyTurn.getPlayer().getHp());
-        assertTrue(afterEnemyTurn.getMessage().contains(enemy.getType() + " hits you for 2 damage"));
+        assertTrue(afterEnemyTurn.getMessage().contains(GameText.enemyAttack(enemy.getType(), 2)));
     }
 
     @Test
@@ -291,7 +291,7 @@ public class GameEngineTest {
         assertEquals(beforeEnemyPosition, findEnemy(unknown, enemy.getId()).getPosition());
         assertEquals(findEnemy(beforeBlockedMove, enemy.getId()).getPosition(),
                 findEnemy(blocked, enemy.getId()).getPosition());
-        assertEquals("Blocked by wall.", blocked.getMessage());
+        assertEquals(GameText.blockedByWall(), blocked.getMessage());
     }
 
     @Test
@@ -310,7 +310,7 @@ public class GameEngineTest {
         assertEquals(adjacent, attacked.getPlayer().getPosition());
         assertEquals(1, attacked.getProjectiles().size());
         assertEquals(turned.enemyAt(enemy.getPosition()).getHp(), attacked.enemyAt(enemy.getPosition()).getHp());
-        assertTrue(attacked.getMessage().contains("Fired Keyboard Pistol"));
+        assertTrue(attacked.getMessage().contains("键盘手枪"));
     }
 
     @Test
@@ -320,7 +320,7 @@ public class GameEngineTest {
         assertEquals(Direction.EAST, state.getPlayer().getDirection());
         assertEquals(1, state.getPlayer().getSteps());
         assertEquals(1, state.getProjectiles().size());
-        assertEquals("Fired Keyboard Pistol EAST.", state.getMessage());
+        assertEquals(GameText.firedKeyboardPistol(Direction.EAST), state.getMessage());
     }
 
     @Test
@@ -336,7 +336,7 @@ public class GameEngineTest {
         assertEquals(new Position(4, 2), firstTick.getProjectiles().get(0).getPosition());
         assertTrue(damagedEnemy.getHp() < findEnemy(state, "target").getHp());
         assertTrue(secondTick.getProjectiles().isEmpty());
-        assertEquals("Projectile hit Bug Slime for 4 damage.", secondTick.getMessage());
+        assertEquals(GameText.projectileHitEnemy("Bug Slime", 4), secondTick.getMessage());
     }
 
     @Test
@@ -348,7 +348,7 @@ public class GameEngineTest {
 
         assertEquals(1, fired.getProjectiles().size());
         assertTrue(afterWall.getProjectiles().isEmpty());
-        assertEquals("Projectile hit a wall.", afterWall.getMessage());
+        assertEquals(GameText.projectileHitWall(), afterWall.getMessage());
     }
 
     @Test
@@ -365,7 +365,7 @@ public class GameEngineTest {
         assertEquals(RoomStatus.ACTIVE, activeRoom.currentRoomState().getStatus());
         assertEquals(RoomType.COMBAT, activeRoom.currentRoomState().getType());
         assertEquals(activeRoom.getPlayer().getPosition(), blockedExit.getPlayer().getPosition());
-        assertEquals("Combat room locked. Defeat all enemies first.", blockedExit.getMessage());
+        assertEquals(GameText.combatRoomLockedExit(), blockedExit.getMessage());
         assertEquals(RoomStatus.CLEARED, clearedRoom.currentRoomState().getStatus());
         assertNotNull(findItem(clearedRoom, "room-reward-" + clearedRoom.getDepth() + "-"
                 + clearedRoom.currentRoomState().getId()));
@@ -380,7 +380,7 @@ public class GameEngineTest {
         GameState ticked = state.tick();
 
         assertEquals(new Position(5, 2), findEnemy(ticked, "bug-ai").getPosition());
-        assertTrue(ticked.getMessage().contains("Tick") || ticked.getMessage().contains("Bug Slime"));
+        assertTrue(ticked.getMessage().contains("tick") || ticked.getMessage().contains("Bug 史莱姆"));
     }
 
     @Test
@@ -401,7 +401,7 @@ public class GameEngineTest {
         GameState ticked = state.tick().tick().tick();
 
         assertEquals(1, ticked.getProjectiles().size());
-        assertEquals("Review Shooter fires a review note.", ticked.getMessage());
+        assertEquals(GameText.shooterFires("Review Shooter"), ticked.getMessage());
     }
 
     @Test
@@ -413,7 +413,7 @@ public class GameEngineTest {
         GameState hit = fired.tick().tick().tick().tick().tick();
 
         assertTrue(hit.getPlayer().getHp() < state.getPlayer().getHp());
-        assertTrue(hit.getMessage().contains("Enemy projectile hit you"));
+        assertTrue(hit.getMessage().contains("敌方弹幕命中你"));
     }
 
     @Test
@@ -446,7 +446,7 @@ public class GameEngineTest {
 
         assertEquals(1, ticked.getProjectiles().size());
         assertTrue(ticked.getProjectiles().get(0).getId().startsWith("boss-question-"));
-        assertTrue(ticked.getMessage().contains("phase 1"));
+        assertTrue(ticked.getMessage().contains("第一阶段"));
     }
 
     @Test
@@ -457,7 +457,7 @@ public class GameEngineTest {
         GameState ticked = state.tick().tick().tick();
 
         assertEquals(3, ticked.getProjectiles().size());
-        assertTrue(ticked.getMessage().contains("phase 2"));
+        assertTrue(ticked.getMessage().contains("第二阶段"));
     }
 
     @Test
@@ -469,7 +469,7 @@ public class GameEngineTest {
 
         assertEquals(1, ticked.getProjectiles().size());
         assertNotNull(findEnemy(ticked, "boss-summon-2"));
-        assertTrue(ticked.getMessage().contains("phase 3"));
+        assertTrue(ticked.getMessage().contains("第三阶段"));
     }
 
     @Test
@@ -492,14 +492,47 @@ public class GameEngineTest {
     }
 
     @Test
-    public void currentRoomIsFullyVisibleWithRoomFog() {
+    public void currentRoomFloorAndInnerWallOutlineAreVisibleWithRaycastFog() {
         GameState state = new GameEngine().playWithInputString("n123s").getState();
         Room currentRoom = state.getWorld().getRooms().get(state.currentRoomState().getId());
+        Position player = state.getPlayer().getPosition();
+        Position northWall = new Position(player.getX(), currentRoom.getY() - 1);
 
         assertEquals(VisibilityState.VISIBLE,
                 state.getVisibilityState(currentRoom.getX(), currentRoom.getY()));
         assertEquals(VisibilityState.VISIBLE,
                 state.getVisibilityState(currentRoom.getRight(), currentRoom.getBottom()));
+        assertEquals(VisibilityState.VISIBLE,
+                state.getVisibilityState(northWall.getX(), northWall.getY()));
+    }
+
+    @Test
+    public void corridorVisionUsesWallBlockingLineOfSight() {
+        GameState state = corridorLosTestState();
+
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(3, 2));
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(4, 2));
+        assertEquals(VisibilityState.UNSEEN, state.getVisibilityState(5, 2));
+        assertEquals(VisibilityState.UNSEEN, state.getVisibilityState(6, 2));
+    }
+
+    @Test
+    public void roomVisionUsesRaycastInsteadOfWholeRoomReveal() {
+        GameState state = roomVisionTestState();
+
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(1, 1));
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(5, 3));
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(3, 0));
+    }
+
+    @Test
+    public void doorwayVisionDoesNotRevealEntireRoomAtOnce() {
+        GameState state = doorwayVisionTestState();
+
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(5, 2));
+        assertEquals(VisibilityState.VISIBLE, state.getVisibilityState(7, 2));
+        assertEquals(VisibilityState.UNSEEN, state.getVisibilityState(14, 1));
+        assertEquals(VisibilityState.UNSEEN, state.getVisibilityState(15, 2));
     }
 
     @Test
@@ -527,8 +560,8 @@ public class GameEngineTest {
         GameState inventory = engine.handleInput(InputCommand.fromKey('i'));
 
         assertTrue(picked.getInventory().contains(item.getId()));
-        assertEquals("Picked up " + item.getName() + ".", picked.getMessage());
-        assertTrue(inventory.getMessage().contains(item.getId()));
+        assertEquals(GameText.pickedUp(item.getName()), picked.getMessage());
+        assertTrue(inventory.getMessage().contains(item.getName()));
     }
 
     @Test
@@ -556,7 +589,7 @@ public class GameEngineTest {
 
         assertEquals(26, healed.getPlayer().getHp());
         assertFalse(healed.getInventory().contains("small-potion"));
-        assertTrue(healed.getMessage().contains("restored 8 HP"));
+        assertTrue(healed.getMessage().contains("恢复 8 点生命值"));
     }
 
     @Test
@@ -587,7 +620,7 @@ public class GameEngineTest {
         assertEquals(2, nextDepth.getDepth());
         assertEquals(nextDepth.getWorld().getSpawnPosition(), nextDepth.getPlayer().getPosition());
         assertFalse(state.getWorld().toTileString().equals(nextDepth.getWorld().toTileString()));
-        assertEquals("Descended to depth 2.", nextDepth.getMessage());
+        assertEquals(GameText.descendedToDepth(2), nextDepth.getMessage());
     }
 
     @Test
@@ -645,7 +678,7 @@ public class GameEngineTest {
 
         assertEquals(25, triggered.getPlayer().getHp());
         assertTrue(findTrapById(triggered, trap.getId()).isTriggered());
-        assertTrue(triggered.getMessage().contains("Damage trap triggered"));
+        assertTrue(triggered.getMessage().contains("扣血陷阱"));
     }
 
     @Test
@@ -657,7 +690,7 @@ public class GameEngineTest {
 
         assertEquals(triggered.getWorld().getSpawnPosition(), triggered.getPlayer().getPosition());
         assertTrue(findTrapById(triggered, trap.getId()).isTriggered());
-        assertTrue(triggered.getMessage().contains("Teleport trap triggered"));
+        assertTrue(triggered.getMessage().contains("传送陷阱"));
     }
 
     @Test
@@ -669,7 +702,7 @@ public class GameEngineTest {
 
         assertEquals(3, triggered.getPlayer().getAtk());
         assertTrue(findTrapById(triggered, trap.getId()).isTriggered());
-        assertTrue(triggered.getMessage().contains("Weakness trap triggered"));
+        assertTrue(triggered.getMessage().contains("虚弱陷阱"));
     }
 
     @Test
@@ -694,8 +727,8 @@ public class GameEngineTest {
         GameState rejected = stateAfterPath(withoutBoss, withoutBoss.getWorld().getDefenseHallPosition()).interact();
 
         assertFalse(rejected.isCompleted());
-        assertTrue(rejected.getMessage().contains("Defense hall locked."));
-        assertTrue(rejected.getMessage().contains("report"));
+        assertTrue(rejected.getMessage().contains("答辩大厅尚未开放"));
+        assertTrue(rejected.getMessage().contains(GameText.itemName("report")));
     }
 
     @Test
@@ -711,7 +744,7 @@ public class GameEngineTest {
 
         assertFalse(rejected.isCompleted());
         assertTrue(findEnemy(rejected, "defense-committee").isAlive());
-        assertTrue(rejected.getMessage().contains("Defense Committee"));
+        assertTrue(rejected.getMessage().contains("答辩委员会"));
     }
 
     @Test
@@ -726,8 +759,8 @@ public class GameEngineTest {
         GameState completed = stateAfterPath(withoutBoss, withoutBoss.getWorld().getDefenseHallPosition()).interact();
 
         assertTrue(completed.isCompleted());
-        assertTrue(completed.getMessage().contains("Defense completed"));
-        assertTrue(completed.getMessage().contains("software engineering practice"));
+        assertTrue(completed.getMessage().contains("答辩完成"));
+        assertTrue(completed.getMessage().contains("软件工程实训作品"));
     }
 
     @Test
@@ -750,8 +783,8 @@ public class GameEngineTest {
         GameState withoutBoss = defeatBoss(finalDepth);
 
         assertFalse(findEnemy(withoutBoss, "defense-committee").isAlive());
-        assertTrue(withoutBoss.getMessage().contains("Final defense is ready"));
-        assertTrue(withoutBoss.getMessage().contains("Room cleared"));
+        assertTrue(withoutBoss.getMessage().contains("最终答辩已经可以提交"));
+        assertTrue(withoutBoss.getMessage().contains(GameText.roomClearedRewardUnlocked()));
     }
 
     @Test
@@ -763,7 +796,7 @@ public class GameEngineTest {
         GameState withoutCard = engine.handleInput(InputCommand.fromKey('e'));
 
         assertFalse(withoutCard.getInventory().contains("report"));
-        assertTrue(withoutCard.getMessage().contains("student-card"));
+        assertTrue(withoutCard.getMessage().contains(GameText.itemName("student-card")));
 
         moveTo(engine, findItem(engine.getState(), "student-card").getPosition());
         engine.handleInput(InputCommand.fromKey('e'));
@@ -785,7 +818,7 @@ public class GameEngineTest {
 
         assertTrue(passIssued.getInventory().contains("pass"));
         assertTrue(passIssued.getQuest().isPassIssued());
-        assertTrue(passIssued.getMessage().contains("defense pass"));
+        assertTrue(passIssued.getMessage().contains(GameText.itemName("pass")));
     }
 
     @Test
@@ -795,7 +828,7 @@ public class GameEngineTest {
 
         moveTo(engine, findNpc(engine.getState(), "assistant").getPosition());
         GameState withoutUsb = engine.handleInput(InputCommand.fromKey('e'));
-        assertTrue(withoutUsb.getMessage().contains("usb"));
+        assertTrue(withoutUsb.getMessage().contains(GameText.itemName("usb")));
 
         moveTo(engine, findItem(engine.getState(), "usb").getPosition());
         engine.handleInput(InputCommand.fromKey('e'));
@@ -928,7 +961,7 @@ public class GameEngineTest {
         GameState current = state;
         for (int i = 0; i < path.length(); i++) {
             current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
-            if (current.getMessage().contains("Teleport trap triggered")) {
+                if (current.getMessage().contains("传送陷阱")) {
                 return current;
             }
         }
@@ -947,7 +980,7 @@ public class GameEngineTest {
                     return current;
                 }
                 if (before.equals(current.getPlayer().getPosition())
-                        && "Combat room locked. Defeat all enemies first.".equals(current.getMessage())) {
+                        && GameText.combatRoomLockedExit().equals(current.getMessage())) {
                     current = clearCurrentCombatRoom(current);
                     interruptedByCombatRoom = true;
                     break;
@@ -1097,6 +1130,81 @@ public class GameEngineTest {
                 Inventory.empty(), Collections.<Item>emptyList(), Collections.<Enemy>emptyList(),
                 Collections.<Npc>emptyList(), Collections.singletonList(trap), QuestState.initial(),
                 null, "Trap test.");
+    }
+
+    private GameState corridorLosTestState() {
+        int width = 8;
+        int height = 5;
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = Tile.WALL;
+            }
+        }
+        for (int x = 1; x <= 6; x++) {
+            tiles[2][x] = Tile.FLOOR;
+        }
+        tiles[2][4] = Tile.WALL;
+        Position playerPosition = new Position(2, 2);
+        World world = new World(width, height, tiles,
+                Collections.<Room>emptyList(), Collections.emptyList(),
+                playerPosition, new Position(6, 2), new Position(6, 2));
+        GameState.PlayerState player = GameState.PlayerState.of(playerPosition.getX(), playerPosition.getY(),
+                Direction.EAST, 0);
+        return GameState.restored(123L, 1, true, false, false, GameStatus.PLAYING, player, world,
+                Inventory.empty(), Collections.<Item>emptyList(), Collections.<Enemy>emptyList(),
+                Collections.<Npc>emptyList(), Collections.<Trap>emptyList(), QuestState.initial(),
+                null, "LOS test.");
+    }
+
+    private GameState roomVisionTestState() {
+        int width = 7;
+        int height = 5;
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = x == 0 || y == 0 || x == width - 1 || y == height - 1 ? Tile.WALL : Tile.FLOOR;
+            }
+        }
+        Position playerPosition = new Position(3, 2);
+        World world = new World(width, height, tiles,
+                Collections.singletonList(new Room(1, 1, 5, 3)),
+                Collections.emptyList(), playerPosition, new Position(5, 2), new Position(5, 2));
+        GameState.PlayerState player = GameState.PlayerState.of(playerPosition.getX(), playerPosition.getY(),
+                Direction.EAST, 0);
+        return GameState.restored(123L, 1, true, false, false, GameStatus.PLAYING, player, world,
+                Inventory.empty(), Collections.<Item>emptyList(), Collections.<Enemy>emptyList(),
+                Collections.<Npc>emptyList(), Collections.<Trap>emptyList(), QuestState.initial(),
+                null, "Room vision test.");
+    }
+
+    private GameState doorwayVisionTestState() {
+        int width = 17;
+        int height = 7;
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = Tile.WALL;
+            }
+        }
+        for (int y = 1; y <= 4; y++) {
+            for (int x = 5; x <= 14; x++) {
+                tiles[y][x] = Tile.FLOOR;
+            }
+        }
+        for (int x = 1; x <= 5; x++) {
+            tiles[2][x] = Tile.FLOOR;
+        }
+        Position playerPosition = new Position(5, 2);
+        World world = new World(width, height, tiles,
+                Collections.singletonList(new Room(5, 1, 10, 4)),
+                Collections.emptyList(), playerPosition, new Position(14, 2), new Position(14, 2));
+        GameState.PlayerState player = GameState.PlayerState.of(playerPosition.getX(), playerPosition.getY(),
+                Direction.EAST, 0);
+        return GameState.restored(123L, 1, true, false, false, GameStatus.PLAYING, player, world,
+                Inventory.empty(), Collections.<Item>emptyList(), Collections.<Enemy>emptyList(),
+                Collections.<Npc>emptyList(), Collections.<Trap>emptyList(), QuestState.initial(),
+                null, "Doorway vision test.");
     }
 
     private List<Room> asRooms(Room first, Room second) {

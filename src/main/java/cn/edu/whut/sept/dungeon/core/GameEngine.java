@@ -24,7 +24,7 @@ public class GameEngine {
     public GameResult playWithInputString(String input) {
         state = GameState.initial();
         if (input == null || input.isEmpty()) {
-            state = state.withMessage("No input.");
+            state = state.withMessage(GameText.noInput());
             return GameResult.of(state);
         }
 
@@ -69,7 +69,7 @@ public class GameEngine {
 
     public GameState handleInput(InputCommand command) {
         if (command == null) {
-            state = state.withMessage("Unknown input.");
+            state = state.withMessage(GameText.unknownInput());
             return state;
         }
 
@@ -91,7 +91,7 @@ public class GameEngine {
                 canAdvanceTurn = true;
                 break;
             case SKILL:
-                state = state.withMessage("Skill is not unlocked yet.");
+                state = state.withMessage(GameText.skillLocked());
                 break;
             case INTERACT:
                 state = state.interact();
@@ -106,12 +106,12 @@ public class GameEngine {
                 canAdvanceTurn = true;
                 break;
             case SAVE_AND_QUIT:
-                state = state.markSaveRequested().markExited().withMessage("Save requested.");
+                state = state.markSaveRequested().markExited().withMessage(GameText.saveRequested());
                 saveManager.save(state);
                 break;
             case UNKNOWN:
             default:
-                state = state.withMessage("Unknown input: " + command.getRawInput());
+                state = state.withMessage(GameText.unknownInput(command.getRawInput()));
                 break;
         }
         if (canAdvanceTurn && consumesTurn(before, state)) {
@@ -139,7 +139,7 @@ public class GameEngine {
         try {
             return Math.max(0, Integer.parseInt(text.trim()));
         } catch (NumberFormatException exception) {
-            state = state.withMessage("Invalid tick count.");
+            state = state.withMessage(GameText.invalidTickCount());
             return 0;
         }
     }
