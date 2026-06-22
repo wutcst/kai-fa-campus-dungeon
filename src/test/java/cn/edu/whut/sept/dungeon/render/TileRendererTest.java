@@ -7,6 +7,7 @@ import cn.edu.whut.sept.dungeon.core.InputCommand;
 import cn.edu.whut.sept.dungeon.core.VisibilityState;
 import cn.edu.whut.sept.dungeon.core.Direction;
 import cn.edu.whut.sept.dungeon.entity.Enemy;
+import cn.edu.whut.sept.dungeon.entity.Inventory;
 import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Npc;
 import cn.edu.whut.sept.dungeon.entity.Trap;
@@ -17,8 +18,10 @@ import org.junit.Test;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Queue;
 
 import static org.junit.Assert.assertEquals;
@@ -32,15 +35,17 @@ public class TileRendererTest {
         LogPanel logPanel = new LogPanel();
 
         assertEquals(32, TileRenderer.TILE_SIZE);
-        assertEquals(21, TileRenderer.VIEWPORT_WIDTH);
-        assertEquals(21, TileRenderer.VIEWPORT_HEIGHT);
+        assertEquals(17, TileRenderer.VIEWPORT_WIDTH);
+        assertEquals(15, TileRenderer.VIEWPORT_HEIGHT);
         assertEquals(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE, tilePanel.getPreferredSize().width);
         assertEquals(TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE, tilePanel.getPreferredSize().height);
         statusPanel.setState(new GameEngine().playWithInputString("n123s").getState());
         logPanel.setState(GameState.initial());
-        assertEquals(672, tilePanel.getPreferredSize().width);
-        assertEquals(672, tilePanel.getPreferredSize().height);
-        assertTrue(statusPanel.getPreferredSize().width > 0);
+        assertEquals(544, tilePanel.getPreferredSize().width);
+        assertEquals(480, tilePanel.getPreferredSize().height);
+        assertEquals(200, statusPanel.getPreferredSize().width);
+        assertEquals(200, statusPanel.getMaximumSize().width);
+        assertEquals(110, logPanel.getPreferredSize().height);
         assertEquals(1, logPanel.getLineCountForTest());
     }
 
@@ -54,6 +59,76 @@ public class TileRendererTest {
         }
 
         assertEquals(20, logPanel.getLineCountForTest());
+    }
+
+    @Test
+    public void logPanelIgnoresEmptyAndTickMessages() {
+        LogPanel logPanel = new LogPanel();
+        GameState state = new GameEngine().playWithInputString("n123s").getState();
+
+        logPanel.setState(state.withMessage(""));
+        logPanel.setState(state.withMessage(GameText.tick(1)));
+        logPanel.setState(state.withMessage("Tick 1."));
+
+        assertEquals(0, logPanel.getLineCountForTest());
+    }
+
+    @Test
+    public void logPanelKeepsBusinessMessagesAndDoesNotLetTicksPushThemOut() {
+        LogPanel logPanel = new LogPanel();
+        GameState state = new GameEngine().playWithInputString("n123s").getState();
+
+        logPanel.setState(state.withMessage("NPC：请准备答辩材料。"));
+        for (int i = 1; i <= 25; i++) {
+            logPanel.setState(state.withMessage(GameText.tick(i)));
+        }
+
+        assertEquals(1, logPanel.getLineCountForTest());
+    }
+
+    @Test
+    public void statusPanelRendersInventoryAsFixedWidthVerticalList() {
+        StatusPanel statusPanel = new StatusPanel();
+        GameState state = new GameEngine().playWithInputString("n123s").getState();
+
+        statusPanel.setState(withInventory(state, Inventory.empty()));
+        assertEquals(1, statusPanel.getInventoryLineCountForTest());
+
+        statusPanel.setState(withInventory(state, Inventory.of(Arrays.asList(
+                "report", "coffee", "a-very-long-campus-dungeon-inventory-item-name"))));
+
+        assertEquals(3, statusPanel.getInventoryLineCountForTest());
+        assertTrue(statusPanel.getInventoryListWidthForTest() <= statusPanel.getPreferredSize().width);
+    }
+
+    @Test
+    public void swingFramePromptsForPuzzleAnswerAfterAssistantInteraction() {
+        GameEngine engine = engineReadyForAssistantPuzzle();
+        TestSwingGameFrame frame = new TestSwingGameFrame(engine, "pom.xml");
+        try {
+            pressKey(frame, 'e');
+
+            assertEquals(1, frame.answerRequestCount);
+            assertTrue(engine.getState().getQuest().isMavenPuzzleSolved());
+            assertEquals(GameText.mavenCorrect(), engine.getState().getMessage());
+        } finally {
+            frame.dispose();
+        }
+    }
+
+    @Test
+    public void swingFrameLeavesPuzzleUnsolvedWhenAnswerDialogIsCancelled() {
+        GameEngine engine = engineReadyForAssistantPuzzle();
+        TestSwingGameFrame frame = new TestSwingGameFrame(engine, null);
+        try {
+            pressKey(frame, 'e');
+
+            assertEquals(1, frame.answerRequestCount);
+            assertTrue(!engine.getState().getQuest().isMavenPuzzleSolved());
+            assertEquals(GameText.assistantMavenPuzzle(), engine.getState().getMessage());
+        } finally {
+            frame.dispose();
+        }
     }
 
     @Test
@@ -386,6 +461,28 @@ public class TileRendererTest {
         return current;
     }
 
+    private GameState withInventory(GameState state, Inventory inventory) {
+        return GameState.restored(state.getSeed(), state.getDepth(), state.isStarted(), state.isExited(),
+                state.isSaveRequested(), state.getStatus(), state.getPlayer(), state.getWorld(), inventory,
+                state.getItems(), state.getEnemies(), state.getNpcs(), state.getTraps(), state.getQuest(),
+                state.copyExplored(), state.getMessage());
+    }
+
+    private GameEngine engineReadyForAssistantPuzzle() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+        moveTo(engine, findItem(engine.getState(), "usb").getPosition());
+        engine.handleInput(InputCommand.fromKey('e'));
+        moveTo(engine, findNpc(engine.getState(), "assistant").getPosition());
+        return engine;
+    }
+
+    private void pressKey(SwingGameFrame frame, char key) {
+        KeyEvent event = new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0,
+                KeyEvent.getExtendedKeyCodeForChar(key), key);
+        frame.getKeyListeners()[0].keyPressed(event);
+    }
+
     private Enemy findEnemy(GameState state, String enemyId) {
         for (Enemy enemy : state.getEnemies()) {
             if (enemy.getId().equals(enemyId)) {
@@ -402,6 +499,15 @@ public class TileRendererTest {
             }
         }
         throw new AssertionError("Missing item: " + itemId);
+    }
+
+    private Npc findNpc(GameState state, String npcId) {
+        for (Npc npc : state.getNpcs()) {
+            if (npc.getId().equals(npcId)) {
+                return npc;
+            }
+        }
+        throw new AssertionError("Missing npc: " + npcId);
     }
 
     private Direction directionBetween(Position from, Position to) {
@@ -448,6 +554,22 @@ public class TileRendererTest {
         private RoomVisit(GameState state, Room previousRoom) {
             this.state = state;
             this.previousRoom = previousRoom;
+        }
+    }
+
+    private static final class TestSwingGameFrame extends SwingGameFrame {
+        private final String answer;
+        private int answerRequestCount;
+
+        private TestSwingGameFrame(GameEngine engine, String answer) {
+            super(engine);
+            this.answer = answer;
+        }
+
+        @Override
+        String requestPuzzleAnswer() {
+            answerRequestCount++;
+            return answer;
         }
     }
 }

@@ -13,8 +13,11 @@ public final class TilePanel extends JPanel {
 
     public TilePanel() {
         this.renderer = new TileRenderer();
-        setPreferredSize(new Dimension(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE,
-                TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE));
+        Dimension viewportSize = new Dimension(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE,
+                TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE);
+        setPreferredSize(viewportSize);
+        setMinimumSize(viewportSize);
+        setMaximumSize(viewportSize);
         setFocusable(false);
     }
 

@@ -21,8 +21,8 @@ import java.awt.RenderingHints;
 public final class TileRenderer {
     private static final int BASE_TILE_SIZE = 24;
     public static final int TILE_SIZE = 32;
-    public static final int VIEWPORT_WIDTH = 21;
-    public static final int VIEWPORT_HEIGHT = 21;
+    public static final int VIEWPORT_WIDTH = 17;
+    public static final int VIEWPORT_HEIGHT = 15;
     public static final Color UNEXPLORED_COLOR = Color.BLACK;
     public static final Color SEEN_WALL_COLOR = new Color(34, 38, 45);
     public static final Color SEEN_FLOOR_COLOR = new Color(45, 48, 53);

@@ -2,11 +2,13 @@ package cn.edu.whut.sept.dungeon.render;
 
 import cn.edu.whut.sept.dungeon.core.GameState;
 import cn.edu.whut.sept.dungeon.core.GameText;
+import cn.edu.whut.sept.dungeon.entity.Inventory;
 import cn.edu.whut.sept.dungeon.room.RoomState;
 
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -16,7 +18,9 @@ import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
 
 public final class StatusPanel extends JPanel {
-    private static final int PANEL_WIDTH = 260;
+    private static final int PANEL_WIDTH = 200;
+    private static final int PANEL_PADDING = 12;
+    private static final int CONTENT_WIDTH = PANEL_WIDTH - PANEL_PADDING * 2;
     private static final String[] DEFENSE_MATERIALS = {"report", "laptop", "slides", "pass"};
 
     private final JLabel titleLabel;
@@ -29,15 +33,16 @@ public final class StatusPanel extends JPanel {
     private final JLabel defLabel;
     private final JLabel weaponLabel;
     private final JLabel armorLabel;
-    private final JLabel inventoryLabel;
+    private final JPanel inventoryListPanel;
     private final JLabel[] materialLabels;
 
     public StatusPanel() {
         setPreferredSize(new Dimension(PANEL_WIDTH, TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE));
+        setMaximumSize(new Dimension(PANEL_WIDTH, Integer.MAX_VALUE));
         setBackground(new Color(17, 20, 25));
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(62, 70, 82)),
-                BorderFactory.createEmptyBorder(18, 18, 18, 18)));
+                BorderFactory.createEmptyBorder(PANEL_PADDING, PANEL_PADDING, PANEL_PADDING, PANEL_PADDING)));
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setFocusable(false);
 
@@ -56,34 +61,39 @@ public final class StatusPanel extends JPanel {
         defLabel = valueLabel();
         weaponLabel = valueLabel();
         armorLabel = valueLabel();
-        inventoryLabel = valueLabel();
+        inventoryListPanel = new JPanel();
+        inventoryListPanel.setLayout(new BoxLayout(inventoryListPanel, BoxLayout.Y_AXIS));
+        inventoryListPanel.setOpaque(false);
+        inventoryListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        inventoryListPanel.setPreferredSize(new Dimension(CONTENT_WIDTH, 88));
+        inventoryListPanel.setMaximumSize(new Dimension(CONTENT_WIDTH, 140));
         materialLabels = new JLabel[DEFENSE_MATERIALS.length];
 
         add(titleLabel);
-        addGap(14);
+        addGap(10);
         add(depthLabel);
         add(roomLabel);
-        addGap(14);
+        addGap(10);
         add(hpBar);
-        addGap(14);
+        addGap(10);
         add(sectionLabel("角色"));
         add(levelLabel);
         add(expLabel);
         add(atkLabel);
         add(defLabel);
-        addGap(12);
+        addGap(8);
         add(sectionLabel("装备"));
         add(weaponLabel);
         add(armorLabel);
-        addGap(12);
+        addGap(8);
         add(sectionLabel("答辩材料"));
         for (int i = 0; i < DEFENSE_MATERIALS.length; i++) {
             materialLabels[i] = valueLabel();
             add(materialLabels[i]);
         }
-        addGap(12);
+        addGap(8);
         add(sectionLabel("背包"));
-        add(inventoryLabel);
+        add(inventoryListPanel);
         add(Box.createVerticalGlue());
         setState(null);
     }
@@ -102,7 +112,7 @@ public final class StatusPanel extends JPanel {
             defLabel.setText("防御：-");
             weaponLabel.setText("武器：键盘手枪");
             armorLabel.setText("防具：无");
-            inventoryLabel.setText("空");
+            setInventoryList(Inventory.empty());
             for (int i = 0; i < materialLabels.length; i++) {
                 setMaterialText(materialLabels[i], false, GameText.itemName(DEFENSE_MATERIALS[i]));
             }
@@ -123,7 +133,7 @@ public final class StatusPanel extends JPanel {
         defLabel.setText("防御：" + state.getPlayer().getDef());
         weaponLabel.setText("武器：" + GameText.itemName(state.getPlayer().getWeapon()));
         armorLabel.setText("防具：" + GameText.itemName(state.getPlayer().getArmor()));
-        inventoryLabel.setText(wrap(GameText.inventorySummary(state.getInventory()), 16));
+        setInventoryList(state.getInventory());
         for (int i = 0; i < materialLabels.length; i++) {
             String material = DEFENSE_MATERIALS[i];
             setMaterialText(materialLabels[i], state.getInventory().contains(material), GameText.itemName(material));
@@ -152,6 +162,7 @@ public final class StatusPanel extends JPanel {
         label.setFont(GameFonts.plain(14));
         label.setForeground(new Color(220, 226, 218));
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        label.setMaximumSize(new Dimension(CONTENT_WIDTH, 24));
         return label;
     }
 
@@ -173,10 +184,39 @@ public final class StatusPanel extends JPanel {
         label.setForeground(collected ? new Color(106, 213, 130) : new Color(94, 101, 110));
     }
 
-    private String wrap(String text, int maxChars) {
-        if (text == null || text.length() <= maxChars) {
-            return text;
+    private void setInventoryList(Inventory inventory) {
+        inventoryListPanel.removeAll();
+        List<String> itemIds = inventory.getItemIds();
+        if (itemIds.isEmpty()) {
+            inventoryListPanel.add(inventoryLine("空"));
+        } else {
+            for (String itemId : itemIds) {
+                inventoryListPanel.add(inventoryLine(GameText.itemName(itemId)));
+            }
         }
-        return "<html>" + text.replace("、", "、<br>") + "</html>";
+        inventoryListPanel.revalidate();
+        inventoryListPanel.repaint();
+    }
+
+    private JLabel inventoryLine(String itemName) {
+        JLabel label = valueLabel();
+        String text = "• " + itemName;
+        label.setText("<html><body style='width:" + (CONTENT_WIDTH - 6) + "px'>" + escapeHtml(text) + "</body></html>");
+        label.setToolTipText(text);
+        label.setPreferredSize(new Dimension(CONTENT_WIDTH, 22));
+        label.setMaximumSize(new Dimension(CONTENT_WIDTH, 44));
+        return label;
+    }
+
+    private String escapeHtml(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    int getInventoryLineCountForTest() {
+        return inventoryListPanel.getComponentCount();
+    }
+
+    int getInventoryListWidthForTest() {
+        return inventoryListPanel.getPreferredSize().width;
     }
 }
