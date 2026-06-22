@@ -81,20 +81,25 @@ mvn test
 
 ### 启动图形界面
 
-项目使用 Gson 进行 JSON 存档，因此直接 `java -cp target/classes ...` 会缺少运行依赖。请先生成 Maven 依赖 classpath：
+推荐先打包生成包含运行依赖的可执行 jar：
 
 ```bash
-mvn -q dependency:build-classpath -Dmdep.outputFile=target/runtime-classpath.txt
-java -cp "target/classes:$(cat target/runtime-classpath.txt)" cn.edu.whut.sept.dungeon.Main
+mvn package
+java -jar target/campus-dungeon-1.0-SNAPSHOT.jar
 ```
 
 使用指定 seed 启动：
 
 ```bash
-java -cp "target/classes:$(cat target/runtime-classpath.txt)" cn.edu.whut.sept.dungeon.Main 20260614
+java -jar target/campus-dungeon-1.0-SNAPSHOT.jar 20260614
 ```
 
-后续打包任务可以把这一步替换为可执行 jar。
+如需开发调试，也可以直接使用 Maven 生成运行 classpath：
+
+```bash
+mvn -q dependency:build-classpath -Dmdep.outputFile=target/runtime-classpath.txt
+java -cp "target/classes:$(cat target/runtime-classpath.txt)" cn.edu.whut.sept.dungeon.Main
+```
 
 ## 操作说明
 
@@ -200,6 +205,8 @@ GUI KeyListener / Replay Input
 mvn test
 ```
 
+当前本地验证结果：`95` 个 JUnit4 测试通过，覆盖核心引擎、世界生成、存档恢复和渲染规则。
+
 当前自动化测试覆盖：
 
 - 同一 seed 生成相同世界。
@@ -214,6 +221,25 @@ mvn test
 - 药水、咖啡、武器、防具、陷阱触发、多层地牢和楼梯换层。
 - 最终 Boss 生成、击败、材料门禁和最终通关。
 - 渲染器对迷雾、实体颜色和像素 glyph 的选择。
+
+## 集成与发布
+
+本项目使用 Maven 作为统一构建入口：
+
+```bash
+mvn test
+mvn package
+java -jar target/campus-dungeon-1.0-SNAPSHOT.jar
+```
+
+`mvn package` 会通过 Maven Shade 插件生成可直接运行的 fat jar，主类为 `cn.edu.whut.sept.dungeon.Main`，并把 Gson 等运行依赖打入 jar。
+
+仓库包含 GitHub Actions workflow：`.github/workflows/maven.yml`。CI 会在 `main` 分支的 push、pull request 和手动触发时执行：
+
+- 使用 Temurin JDK 8。
+- 运行 `mvn test`。
+- 运行 `mvn package`。
+- 上传 `target/campus-dungeon-1.0-SNAPSHOT.jar` 作为构建产物。
 
 ## 存档
 
@@ -290,4 +316,4 @@ Campus Dungeon 功能主线：
 
 ## AI 辅助说明
 
-本项目开发过程中使用 AI 工具辅助进行了课程要求解析、项目方向讨论、Issue 规划、部分文档整理、代码结构建议和验证命令设计。核心代码与文档均经过人工确认，并通过 Maven 测试、GitHub Issue/PR 流程和本地运行检查进行验证。
+本项目开发过程中使用 AI 工具辅助进行了课程要求解析、项目方向讨论、Issue 规划、部分文档整理、代码结构建议、测试场景梳理和打包发布说明。核心代码与文档均经过人工确认，并通过 Maven 测试、GitHub Issue/PR 流程、本地运行检查和 CI 构建流程进行验证。报告中应明确披露 AI 工具参与的具体环节，不把 AI 生成内容直接等同于小组最终验收结果。
